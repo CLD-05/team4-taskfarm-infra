@@ -25,26 +25,30 @@ team4-taskfarm-infra    → Terraform (현재 레포)
 ## 🗂 디렉터리 구조
 
 ```
-infra/
-├── bootstrap-backend/        # state용 S3 (가장 먼저 1회만)
-├── modules/                  # 환경 무관 재사용 부품
-│   ├── network/              # VPC, subnet, NAT, AZ(a/c)
-│   ├── bastion/              # SSM 허브 (SSH 차단)
-│   ├── eks/                  # 클러스터 1.35, Pod Identity
-│   ├── database/             # RDS MySQL 8.4 (Multi-AZ 변수화)
-│   ├── elasticache/          # Redis (Gemini 캐싱)
-│   ├── ecr/                  # 앱 이미지 (+lifecycle)
-│   ├── github_oidc/          # GitHub Actions OIDC role
-│   ├── route53/              # 도메인
-│   ├── s3/                   # 스토리지
-│   └── secrets/              # Secrets Manager (Gemini 키)
-└── envs/                     # 실행 root (환경별 분리)
-    ├── dev/
-    │   ├── infra/            # VPC, EKS, RDS, IAM
-    │   └── platform-addons/  # ArgoCD, ESO, Prometheus 등
-    └── prod/
-        ├── infra/
-        └── platform-addons/
+team4-taskfarm-infra/
+└── infra/
+    ├── bootstrap/        state 저장소(S3)를 만드는 곳. 처음 한 번만 실행한다
+    │
+    ├── modules/          인프라 부품의 설계도. 직접 실행하지 않는다
+    │   ├── vpc/
+    │   ├── eks/
+    │   ├── rds/
+    │   ├── elasticache/
+    │   ├── ecr/
+    │   ├── iam/
+    │   ├── secrets/
+    │   ├── s3/
+    │   ├── route53/
+    │   ├── bastion/
+    │   └── platform-addons/   애드온·Helm 설치 모듈
+    │
+    └── envs/             실제로 인프라를 만드는 곳. 여기서 apply 한다
+        ├── dev/
+        │   ├── infra/             레이어 1: vpc·eks·rds 등 (AWS provider)
+        │   └── platform-addons/   레이어 2: 애드온·Helm (Kubernetes·Helm provider)
+        └── prod/
+            ├── infra/
+            └── platform-addons/
 ```
 
 > **modules** 는 부품, **envs/** 가 tfvars로 값을 채워 조립합니다.
