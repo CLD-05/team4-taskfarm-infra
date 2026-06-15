@@ -1,12 +1,5 @@
 locals {
   resource_prefix = lower(replace(var.name_prefix, "_", "-"))
-
-  common_tags = merge(
-    {
-      team = "team4"
-    },
-    var.tags
-  )
 }
 
 resource "aws_security_group" "rds" {
@@ -30,7 +23,7 @@ resource "aws_security_group" "rds" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = merge(local.common_tags, {
+  tags = merge(var.tags, {
     Name = "${local.resource_prefix}-rds-sg"
   })
 }
@@ -40,7 +33,7 @@ resource "aws_kms_key" "rds" {
   deletion_window_in_days = var.kms_deletion_window_in_days
   enable_key_rotation     = true
 
-  tags = merge(local.common_tags, {
+  tags = merge(var.tags, {
     Name = "${local.resource_prefix}-rds-kms"
   })
 }
@@ -55,7 +48,7 @@ resource "aws_db_subnet_group" "this" {
   description = "DB subnet group for ${local.resource_prefix} RDS"
   subnet_ids  = var.db_subnet_ids
 
-  tags = merge(local.common_tags, {
+  tags = merge(var.tags, {
     Name = "${local.resource_prefix}-db-subnet-group"
   })
 }
@@ -96,7 +89,14 @@ resource "aws_db_instance" "primary" {
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   apply_immediately          = var.apply_immediately
 
-  tags = merge(local.common_tags, {
+  lifecycle {
+    precondition {
+      condition     = !var.create_read_replica || var.backup_retention_period > 0
+      error_message = "backup_retention_period must be greater than 0 when create_read_replica is true."
+    }
+  }
+
+  tags = merge(var.tags, {
     Name = "${local.resource_prefix}-mysql"
   })
 }
@@ -119,7 +119,7 @@ resource "aws_db_instance" "read_replica" {
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   apply_immediately          = var.apply_immediately
 
-  tags = merge(local.common_tags, {
+  tags = merge(var.tags, {
     Name = "${local.resource_prefix}-mysql-reader"
   })
 }
