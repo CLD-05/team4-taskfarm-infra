@@ -38,3 +38,24 @@ module "rds" {
     env = "dev"
   }
 }
+
+module "eks" {
+  source = "../../modules/eks"
+
+  endpoint_public_access  = true
+  endpoint_private_access = true
+  public_access_cidrs     = [" "]
+
+  # compute_type = "fargete" 
+  fargate_pod_execution_role_arn = module.iam.fargate_pod_execution_role_arn
+
+  # 값 주입 => tfvars에 넣어도 됨
+  s3_bucket_arn = module.s3.bucket_arn
+
+  # 객체 권한 다르게 줘야 할 수도 있음
+  s3_object_actions = [
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject"
+  ]
+}
