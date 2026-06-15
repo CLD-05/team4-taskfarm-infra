@@ -1,3 +1,15 @@
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  azs = slice(sort(data.aws_availability_zones.available.names), 0, 2)
+
+  public_subnets  = { for i, cidr in var.public_subnet_cidrs : local.azs[i] => cidr }
+  private_subnets = { for i, cidr in var.private_subnet_cidrs : local.azs[i] => cidr }
+  db_subnets      = { for i, cidr in var.db_subnet_cidrs : local.azs[i] => cidr }
+}
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -12,7 +24,7 @@ resource "aws_internet_gateway" "this" {
 }
 
 resource "aws_subnet" "public" {
-  for_each = var.public_subnets
+  for_each = local.public_subnets
 
   vpc_id                  = aws_vpc.this.id
   availability_zone       = each.key
@@ -24,7 +36,7 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each = var.private_subnets
+  for_each = local.private_subnets
 
   vpc_id            = aws_vpc.this.id
   availability_zone = each.key
@@ -35,7 +47,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_subnet" "db" {
-  for_each = var.db_subnets
+  for_each = local.db_subnets
 
   vpc_id            = aws_vpc.this.id
   availability_zone = each.key
@@ -46,7 +58,7 @@ resource "aws_subnet" "db" {
 }
 
 resource "aws_eip" "nat" {
-  for_each = var.env == "prod" ? var.public_subnets : {}
+  for_each = var.env == "prod" ? local.public_subnets : {}
 
   domain = "vpc"
   tags = merge(var.tags, { Name = "${var.name_prefix}-nat-eip-${each.key}"
@@ -54,7 +66,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "nat" {
-  for_each = var.env == "prod" ? var.public_subnets : {}
+  for_each = var.env == "prod" ? local.public_subnets : {}
 
   allocation_id = aws_eip.nat[each.key].id
   subnet_id     = aws_subnet.public[each.key].id
@@ -88,7 +100,7 @@ resource "aws_security_group" "nat" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = values(var.private_subnets)
+    cidr_blocks = values(local.private_subnets)
   }
   egress {
     from_port   = 0
@@ -106,7 +118,7 @@ resource "aws_eip" "nat_instance" {
 
   domain   = "vpc"
   instance = aws_instance.nat[0].id
-  tags     = merge(var.tags, { Name = "${var.name_prefix}-nat-instance=eip" })
+  tags     = merge(var.tags, { Name = "${var.name_prefix}-nat-instance-eip" })
 }
 
 resource "aws_instance" "nat" {
@@ -151,21 +163,28 @@ resource "aws_route_table_association" "db" {
 }
 
 resource "aws_route_table" "private" {
-  for_each = var.private_subnets
+  for_each = local.private_subnets
 
   vpc_id = aws_vpc.this.id
   tags   = merge(var.tags, { Name = "${var.name_prefix}-private-rt-${each.key}" })
 
 }
 
-resource "aws_route" "private_nat" {
-  for_each = var.private_subnets
+resource "aws_route" "private_nat_instance" {
+  for_each = var.env == "dev" ? local.private_subnets : {}
 
   route_table_id         = aws_route_table.private[each.key].id
   destination_cidr_block = "0.0.0.0/0"
+  network_interface_id   = aws_instance.nat[0].primary_network_interface_id
+}
 
-  network_interface_id = try(aws_instance.nat[0].primary_network_interface_id, null)
-  nat_gateway_id       = try(aws_nat_gateway.nat[each.key].id, null)
+# prod: private → NAT Gateway (같은 AZ)
+resource "aws_route" "private_nat_gateway" {
+  for_each = var.env == "prod" ? local.private_subnets : {}
+
+  route_table_id         = aws_route_table.private[each.key].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat[each.key].id
 }
 
 resource "aws_route_table_association" "private" {
