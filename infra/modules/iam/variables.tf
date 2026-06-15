@@ -31,3 +31,9 @@ variable "pod_identity_roles" {
   default     = {}
   description = "Pod Identity 역할: {역할이름 => 붙일 정책 ARN}"
 }
+
+variable "tags" {
+  type        = map(string)
+  default     = {}
+  description = "추가 태그 (표준4종은 provider default_tags)"
+}

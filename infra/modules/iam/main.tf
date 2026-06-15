@@ -1,11 +1,17 @@
+data "tls_certificate" "github" {
+  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_oidc_provider ? 1 : 0
 
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["1c58a3a8518e8759bf075b76b750d4f2df264fca"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
 
-  tags = { Name = "${var.name_prefix}-github-oidc" }
+  # 하드코딩 대신 동적 조회 (인증서 갱신돼도 안 깨짐)
+  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-github-oidc" })
 }
 
 data "aws_iam_openid_connect_provider" "github" {
@@ -34,7 +40,7 @@ resource "aws_iam_role" "github_actions" {
         }
         # sub는 우리 레포/브랜치만 (패턴 매칭)
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = var.env == "prod" ? "repo:${var.github_org}/${var.github_repo}:environment:prod" : "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"
         }
       }
     }]
