@@ -39,3 +39,12 @@ module "rds" {
     env = "prod"
   }
 }
+
+
+module "eks" {
+  source = "../../modules/eks"
+
+  endpoint_public_access  = false
+  endpoint_private_access = true
+  public_access_cidrs     = []
+}

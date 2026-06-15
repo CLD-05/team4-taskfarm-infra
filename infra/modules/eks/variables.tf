@@ -15,7 +15,7 @@ variable "eks_cluster_version" {
 }
 
 variable "enabled_cluster_log_types" {
-  description = "value"
+  description = "EKS control plane log types"
   type        = list(string)
   default     = ["api", "audit", "authenticator"]
 }
@@ -44,7 +44,7 @@ variable "eks_node_sg_id" {
 variable "endpoint_public_access" {
   description = "public access"
   type        = bool
-  default     = false
+
 }
 
 variable "endpoint_private_access" {
@@ -97,12 +97,12 @@ variable "admin_iam_role_arn" {
 }
 
 variable "s3_bucket_arn" {
-  description = "value"
+  description = "S3 bucket ARN"
   type        = string
 }
 
 variable "s3_object_actions" {
-  description = "value"
+  description = "s3 object-lovel action"
   type        = list(string)
   default     = ["s3:ListBucket"]
   #  default = [ "s3:GetObject", "s3:PutObject", "s3:DeleteObject" ]
@@ -133,4 +133,10 @@ variable "fargate_pod_execution_role_arn" {
   description = "IAM role ARN for EKS Fargate pod execution"
   type        = string
   default     = null
+}
+
+variable "enable_pod_identity_s3" {
+  description = "Whether to create Pod Identity resources for S3 access. Use true only for node_group compute type."
+  type        = bool
+  default     = false
 }

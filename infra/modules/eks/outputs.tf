@@ -25,10 +25,10 @@ output "node_group_name" {
 
 output "pod_identity_role_arn" {
   description = "Pod Identity IAM role ARN"
-  value       = var.compute_type == "node_group" ? aws_iam_role.pod_identity_role[0].arn : null
+  value       = local.enabled_pod_identity_s3 ? aws_iam_role.pod_identity_role[0].arn : null
 }
 
 output "pod_identity_association_id" {
   description = "EKS Pod Identity Association ID"
-  value       = var.compute_type == "node_group" ? aws_eks_pod_identity_association.main[0].association_id : null
+  value       = local.enabled_pod_identity_s3 ? aws_eks_pod_identity_association.main[0].association_id : null
 }

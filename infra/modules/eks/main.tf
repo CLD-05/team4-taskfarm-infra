@@ -1,4 +1,13 @@
 # ----------------------------------------------------------------------
+# local 변수
+# ----------------------------------------------------------------------
+locals {
+  enabled_node_group      = var.compute_type == "node_group"
+  enabled_fargate_profile = var.compute_type == "fargate"
+  enabled_pod_identity_s3 = var.compute_type == "node_group" && var.enabled_pod_identity_s3
+}
+
+# ----------------------------------------------------------------------
 # CloudWatch 로그 그룹 생성
 # ----------------------------------------------------------------------
 
@@ -58,7 +67,7 @@ resource "aws_eks_cluster" "main" {
 # ----------------------------------------------------------------------
 
 resource "aws_launch_template" "eks_node" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_node_group ? 1 : 0
 
   name_prefix = "${var.name_prefix}-node-lt-"
 
@@ -105,7 +114,7 @@ resource "aws_launch_template" "eks_node" {
 
 # EKS 노드 그룹
 resource "aws_eks_node_group" "main" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_node_group ? 1 : 0
 
   # 어느 클러스터에 붙을 노드그룹인지 지정
   cluster_name    = aws_eks_cluster.main.name
@@ -147,7 +156,7 @@ resource "aws_eks_node_group" "main" {
 # ----------------------------------------------------------------------
 
 resource "aws_eks_fargate_profile" "app" {
-  count = var.compute_type == "fargate" ? 1 : 0
+  count = local.enabled_fargate_profile ? 1 : 0
 
   cluster_name         = aws_eks_cluster.main.name
   fargate_profile_name = "${var.name_prefix}-app-fargate-profile"
@@ -173,7 +182,7 @@ resource "aws_eks_fargate_profile" "app" {
 # ----------------------------------------------------------------------
 
 resource "aws_eks_fargate_profile" "coredns" {
-  count = var.compute_type == "fargate" ? 1 : 0
+  count = local.enabled_fargate_profile ? 1 : 0
 
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = "${var.name_prefix}-coredns-fargate-profile"
@@ -238,7 +247,7 @@ data "aws_caller_identity" "current" {}
 
 # 내 AWS 계정의 team4 클러스터에서 온 Pod Identity 요청만 Role 사용 가능
 resource "aws_iam_role" "pod_identity_role" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_pod_identity_s3 ? 1 : 0
 
   name = "${var.name_prefix}-eks-pod-identity-role"
 
@@ -279,7 +288,7 @@ resource "aws_iam_role" "pod_identity_role" {
 # ----------------------------------------------------------------------
 
 resource "aws_iam_policy" "pod_identity_s3_policy" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_pod_identity_s3 ? 1 : 0
 
   name = "${var.name_prefix}-pod-identity-s3-policy"
 
@@ -316,7 +325,7 @@ resource "aws_iam_policy" "pod_identity_s3_policy" {
 
 # 위에서 만든 IAM Role에 S3 최소 권한 정책 붙이는 것
 resource "aws_iam_role_policy_attachment" "pod_identity_s3_policy_attachment" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_pod_identity_s3 ? 1 : 0
 
   role       = aws_iam_role.pod_identity_role[0].name
   policy_arn = aws_iam_policy.pod_identity_s3_policy[0].arn
@@ -327,7 +336,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_s3_policy_attachment" {
 # ----------------------------------------------------------------------
 
 resource "aws_eks_pod_identity_association" "main" {
-  count = var.compute_type == "node_group" ? 1 : 0
+  count = local.enabled_pod_identity_s3 ? 1 : 0
 
   cluster_name = aws_eks_cluster.main.name
   # 권한을 줄 Kubernetes namespace
