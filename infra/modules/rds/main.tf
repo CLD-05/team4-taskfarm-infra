@@ -1,10 +1,12 @@
+# modules/rds/main.tf
+
 locals {
   resource_prefix = lower(replace(var.name_prefix, "_", "-"))
 }
 
 resource "aws_security_group" "rds" {
   name        = "${local.resource_prefix}-rds-sg"
-  description = "Allow MySQL access from EKS node security group only"
+  description = "Allow MySQL access from EKS node SG (and bastion SG if provided)"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -13,6 +15,19 @@ resource "aws_security_group" "rds" {
     to_port         = var.port
     protocol        = "tcp"
     security_groups = [var.eks_node_security_group_id]
+  }
+
+  # [FIX-2] bastion SG에서의 MySQL 접근 (운영 거점). bastion_security_group_id가
+  #         null이 아닐 때만 규칙 생성 (dev에서 bastion 없으면 null → 미생성).
+  dynamic "ingress" {
+    for_each = var.bastion_security_group_id != null ? [1] : []
+    content {
+      description     = "MySQL from bastion"
+      from_port       = var.port
+      to_port         = var.port
+      protocol        = "tcp"
+      security_groups = [var.bastion_security_group_id]
+    }
   }
 
   egress {
@@ -43,15 +58,14 @@ resource "aws_kms_alias" "rds" {
   target_key_id = aws_kms_key.rds.key_id
 }
 
-resource "aws_db_subnet_group" "this" {
-  name        = "${local.resource_prefix}-db-subnet-group"
-  description = "DB subnet group for ${local.resource_prefix} RDS"
-  subnet_ids  = var.db_subnet_ids
-
-  tags = merge(var.tags, {
-    Name = "${local.resource_prefix}-db-subnet-group"
-  })
-}
+# [FIX-1] aws_db_subnet_group 리소스 삭제 — vpc 모듈 것을 var로 받습니다.
+# (원본)
+# resource "aws_db_subnet_group" "this" {
+#   name        = "${local.resource_prefix}-db-subnet-group"
+#   description = "DB subnet group for ${local.resource_prefix} RDS"
+#   subnet_ids  = var.db_subnet_ids
+#   tags = merge(var.tags, { Name = "${local.resource_prefix}-db-subnet-group" })
+# }
 
 resource "aws_db_instance" "primary" {
   identifier = "${local.resource_prefix}-mysql"
@@ -70,10 +84,12 @@ resource "aws_db_instance" "primary" {
   username = var.username
   port     = var.port
 
+  # 비밀번호를 Secrets Manager에 위임 (tfvars에 평문 없음)
   manage_master_user_password   = true
   master_user_secret_kms_key_id = aws_kms_key.rds.key_id
 
-  db_subnet_group_name   = aws_db_subnet_group.this.name
+  # [FIX-1] vpc 모듈이 만든 db subnet group 이름을 받아서 사용
+  db_subnet_group_name   = var.db_subnet_group_name
   vpc_security_group_ids = [aws_security_group.rds.id]
   publicly_accessible    = false
 
@@ -89,6 +105,7 @@ resource "aws_db_instance" "primary" {
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   apply_immediately          = var.apply_immediately
 
+  # read replica 만들려면 자동백업이 켜져 있어야 함(precondition)
   lifecycle {
     precondition {
       condition     = !var.create_read_replica || var.backup_retention_period > 0
@@ -112,6 +129,7 @@ resource "aws_db_instance" "read_replica" {
   publicly_accessible    = false
   vpc_security_group_ids = [aws_security_group.rds.id]
 
+  # replica는 자체 백업 불필요(소스에서 복제) — 0이 맞습니다.
   backup_retention_period = 0
   deletion_protection     = var.deletion_protection
   skip_final_snapshot     = true

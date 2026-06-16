@@ -1,3 +1,5 @@
+# modules/rds/outputs.tf
+
 output "primary_endpoint" {
   description = "Primary RDS endpoint for application write traffic."
   value       = aws_db_instance.primary.endpoint
@@ -28,11 +30,6 @@ output "db_security_group_id" {
   value       = aws_security_group.rds.id
 }
 
-output "db_subnet_group_name" {
-  description = "DB subnet group name used by RDS."
-  value       = aws_db_subnet_group.this.name
-}
-
 output "db_name" {
   description = "Initial database name."
   value       = var.db_name
@@ -49,7 +46,7 @@ output "kms_key_arn" {
 }
 
 output "master_user_secret_arn" {
-  description = "Secrets Manager secret ARN managed by RDS for the master user password."
+  description = "Secrets Manager secret ARN managed by RDS for the master user password (ESO/앱이 DB 비번 받을 때)."
   value       = aws_db_instance.primary.master_user_secret[0].secret_arn
   sensitive   = true
 }

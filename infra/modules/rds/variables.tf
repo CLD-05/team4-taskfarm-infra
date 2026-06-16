@@ -1,3 +1,5 @@
+# modules/rds/variables.tf
+
 variable "name_prefix" {
   description = "Prefix used for RDS resource names, for example team4-dev or team4-prod."
   type        = string
@@ -8,19 +10,28 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "db_subnet_ids" {
-  description = "Private DB subnet IDs for the RDS DB subnet group."
-  type        = list(string)
-
-  validation {
-    condition     = length(var.db_subnet_ids) >= 2
-    error_message = "At least two DB subnet IDs are required for RDS subnet group and Multi-AZ readiness."
-  }
+# [FIX-1] db_subnet_ids 제거하고 group name을 받음
+# (원본)
+# variable "db_subnet_ids" {
+#   description = "Private DB subnet IDs for the RDS DB subnet group."
+#   type        = list(string)
+#   validation { ... 2개 이상 ... }
+# }
+variable "db_subnet_group_name" {
+  description = "DB subnet group name (vpc 모듈이 생성. module.vpc.db_subnet_group_name 주입)."
+  type        = string
 }
 
 variable "eks_node_security_group_id" {
   description = "EKS node security group ID allowed to access MySQL on port 3306."
   type        = string
+}
+
+# [FIX-2] bastion SG (운영 접근). dev에서 bastion 없으면 null → 인바운드 미추가.
+variable "bastion_security_group_id" {
+  description = "Bastion security group ID for MySQL access (운영 거점). null이면 미추가."
+  type        = string
+  default     = null
 }
 
 variable "db_name" {
