@@ -13,6 +13,19 @@ variable "db_access_security_group_id" {
   type        = string
 }
 
+module "ecr" {
+  source = "../../../modules/ecr"
+
+  repository_names = [
+    "taskfarm-prod-user",
+    "taskfarm-prod-admin"
+  ]
+
+  tags = {
+    env = "prod"
+  }
+}
+
 module "rds" {
   source = "../../../modules/rds"
 
@@ -42,7 +55,7 @@ module "rds" {
 
 
 module "eks" {
-  source = "../../modules/eks"
+  source = "../../../modules/eks"
 
   endpoint_public_access  = false
   endpoint_private_access = true
