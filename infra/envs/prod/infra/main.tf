@@ -37,10 +37,9 @@ module "eks" {
   node_group_max_size       = var.node_group_max_size
   node_group_disk_size      = var.node_group_disk_size
 
-  admin_iam_role_arn = var.admin_iam_role_arn
-  namespace          = var.app_namespace
+  admin_user_arns = var.admin_user_arns
+  namespace       = var.app_namespace
 
-  ebs_csi_irsa_role_arn = try(module.iam.irsa_role_arns["ebs-csi"], null)
 
   enable_pod_identity_s3 = false
   addon_versions         = var.addon_versions
@@ -55,11 +54,6 @@ module "iam" {
   github_repo   = var.github_repo
   ecr_repo_arns = module.ecr.repository_arns
 
-  eks_oidc_provider_arn = module.eks.oidc_provider_arn
-  eks_oidc_provider_url = module.eks.oidc_provider_url
-
-  pod_identity_roles = var.pod_identity_roles
-  irsa_roles         = var.irsa_roles # prod는 보통 ebs-csi만
 }
 
 module "rds" {

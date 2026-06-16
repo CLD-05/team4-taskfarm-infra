@@ -8,25 +8,14 @@ variable "db_subnet_cidrs" { type = list(string) }
 
 variable "github_org" { type = string }
 variable "github_repo" { type = string }
-variable "ecr_repo_arns" { type = list(string) }
-variable "pod_identity_roles" {
-  type    = map(string)
-  default = {}
-}
-variable "irsa_roles" {
-  type = map(object({
-    policy_arn      = string
-    namespace       = string
-    service_account = string
-  }))
-  default = {}
-}
 
 variable "eks_cluster_version" {
   type    = string
   default = "1.35"
 }
-variable "admin_iam_role_arn" { type = string }
+variable "admin_user_arns" {
+  type = list(string)
+}
 variable "app_namespace" {
   type    = string
   default = "taskfarm"

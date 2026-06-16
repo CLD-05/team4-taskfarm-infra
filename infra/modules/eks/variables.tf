@@ -80,9 +80,9 @@ variable "node_group_max_size" {
   default     = 0
 }
 
-variable "admin_iam_role_arn" {
-  description = "IAM Role ARN for admin (kubectl 관리자 — Access Entry로 등록)"
-  type        = string
+variable "admin_user_arns" {
+  description = "EKS cluster admin으로 등록할 IAM 유저 ARN 목록. 전원 동등하게 cluster admin. 가이드 09-1(3)."
+  type        = list(string)
 }
 
 variable "s3_bucket_arn" {
@@ -140,11 +140,3 @@ variable "addon_versions" {
   }
 }
 
-# [ADD] EBS CSI driver의 IRSA role ARN.
-# ⚠️ EKS managed addon은 Pod Identity 미지원 → IRSA만 가능(검색 확인).
-#    iam 모듈에서 EBS CSI용 IRSA role을 만들어 ARN 주입. node_group(prod)만 사용.
-variable "ebs_csi_irsa_role_arn" {
-  description = "EBS CSI driver용 IRSA role ARN (prod/node_group만). Fargate(dev)는 EBS 미지원이라 불필요."
-  type        = string
-  default     = null
-}

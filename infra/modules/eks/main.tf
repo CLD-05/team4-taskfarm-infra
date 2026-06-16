@@ -8,7 +8,7 @@ locals {
   enabled_fargate_profile = var.compute_type == "fargate"
 
   # [FIX-1] enabled_pod_identity_s3 → enable_pod_identity_s3 (d 없음, variables.tf와 통일)
-  # ⚠️ Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
+  # Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
   enabled_pod_identity_s3 = var.compute_type == "node_group" && var.enable_pod_identity_s3
 }
 
@@ -186,7 +186,7 @@ resource "aws_eks_fargate_profile" "app" {
 
 # ----------------------------------------------------------------------
 # CoreDNS용 Fargate Profile — fargate(dev)만
-# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요.)
+# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요)
 # ----------------------------------------------------------------------
 resource "aws_eks_fargate_profile" "coredns" {
   count = local.enabled_fargate_profile ? 1 : 0
@@ -211,35 +211,45 @@ resource "aws_eks_fargate_profile" "coredns" {
 }
 
 # ----------------------------------------------------------------------
-# Access Entry = kubectl로 클러스터 접근할 IAM Role 등록
+# Access Entry = kubectl로 클러스터 접근할 IAM 유저 등록
 # ----------------------------------------------------------------------
-resource "aws_eks_access_entry" "cluster_admin" {
+# [CHANGE] 단일 admin_iam_role_arn → for_each map(admin_users)로 변경.
+#   가이드 09-1 (3): 개인 IAM 유저를 EKS Access Entry에 직접 매핑
+#   → SSO 없이도 개인별 권한 분리·CloudTrail 추적. 팀원 추가는 map에 한 줄.
+#   (IAM 유저 ARN은 식별자라 비밀 아님. tfvars는 gitignore라 git에도 안 올라감)
+resource "aws_eks_access_entry" "admins" {
+  for_each = toset(var.admin_user_arns)
+
   cluster_name  = aws_eks_cluster.main.name
-  principal_arn = var.admin_iam_role_arn
+  principal_arn = each.value
   type          = "STANDARD"
 
   depends_on = [aws_eks_cluster.main]
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-cluster-admin-access-entry"
+    Name = "${var.name_prefix}-admin-${element(split("/", each.value), 1)}"
   })
 }
 
-resource "aws_eks_access_policy_association" "cluster_admin_policy" {
+resource "aws_eks_access_policy_association" "admins" {
+  for_each = toset(var.admin_user_arns)
+
   cluster_name  = aws_eks_cluster.main.name
-  principal_arn = var.admin_iam_role_arn
+  principal_arn = each.value
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
   }
 
-  depends_on = [aws_eks_access_entry.cluster_admin]
+  depends_on = [aws_eks_access_entry.admins]
 }
 
-# [NOTE] bastion role도 kubectl 권한 주려면 위와 같은 access_entry를 하나 더 만들거나,
-#        admin_iam_role_arn에 bastion role을 줄 수 있습니다. (bastion 모듈의 iam_role_arn output 사용)
-#        여러 principal이면 for_each로 access_entry를 묶는 것도 방법입니다.
+# [NOTE] 권한 분리(v3)를 더 세분화하려면 admin_users 대신 역할별 map
+#   (admin=cluster scope / developer=namespace edit / viewer=namespace view)으로 확장.
+#   지금은 전원 cluster admin(v1.5). 발표 때 "v3로 확장 가능" 언급 포인트.
+# [NOTE] bastion role도 kubectl 권한 주려면 admin_users에 bastion role ARN 추가하거나
+#   별도 access_entry 작성. (bastion 모듈의 iam_role_arn output 사용)
 
 # ----------------------------------------------------------------------
 # Pod Identity IAM Role = Pod가 AWS 리소스 접근 시 쓸 Role
