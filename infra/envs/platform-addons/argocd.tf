@@ -26,3 +26,89 @@
 
 # resource "helm_release" "argocd" { ... }
 # resource "kubernetes_manifest" "root_app" { ... }
+
+# =====================================================================
+# [담당 C] ArgoCD (+ root app / app-of-apps)
+# =====================================================================
+# 역할: GitOps CD. config 레포(K8s 매니페스트)를 watch해 클러스터에 자동 동기화.
+# 방식: helm_release(ArgoCD) + root Application(app-of-apps 패턴)
+#
+# 주의:
+# - ArgoCD 설치는 Terraform이 담당한다.
+# - ArgoCD Application 선언은 config repo(GitOps)에서 관리한다.
+# - 현재는 ALB Controller 작업 전이므로 ArgoCD Ingress는 비활성화한다.
+
+resource "helm_release" "argocd" {
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = var.chart_versions.argocd
+  namespace        = "argocd"
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      crds = {
+        install = true
+      }
+
+      server = {
+        service = {
+          type = "ClusterIP"
+        }
+
+        ingress = {
+          enabled = false
+        }
+      }
+
+      configs = {
+        params = {
+          "server.insecure" = true
+        }
+      }
+    })
+  ]
+}
+
+resource "kubernetes_manifest" "argocd_root_app" {
+  depends_on = [
+    helm_release.argocd
+  ]
+
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+
+    metadata = {
+      name      = "taskfarm-root"
+      namespace = "argocd"
+    }
+
+    spec = {
+      project = "default"
+
+      source = {
+        repoURL        = var.argocd_config_repo_url
+        targetRevision = var.argocd_target_revision
+        path           = var.argocd_config_repo_path
+      }
+
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = "argocd"
+      }
+
+      syncPolicy = {
+        automated = {
+          prune    = true
+          selfHeal = true
+        }
+
+        syncOptions = [
+          "CreateNamespace=true"
+        ]
+      }
+    }
+  }
+}
