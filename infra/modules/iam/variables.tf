@@ -40,3 +40,9 @@ variable "tags" {
   default     = {}
   description = "추가 태그 (표준4종은 provider default_tags)"
 }
+
+variable "permissions_boundary_arn" {
+  description = "IAM Role permissions boundary ARN (부트캠프 계정 정책)."
+  type        = string
+  default     = null
+}

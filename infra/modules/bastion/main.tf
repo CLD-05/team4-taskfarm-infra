@@ -1,10 +1,11 @@
-# modules/bastion/main.tf
+# Bastion (운영 도구 허브)
 
 locals {
   enabled = var.enabled ? 1 : 0
   name    = "team4-${var.env}-bastion"
 }
 
+# 최신 Amazon Linux 2023 AMI 자동 조회 (var.ami_id 비었을 때)
 data "aws_ami" "al2023" {
   count       = var.ami_id == "" && var.enabled ? 1 : 0
   most_recent = true
@@ -24,11 +25,13 @@ locals {
   ami_id = var.ami_id != "" ? var.ami_id : try(data.aws_ami.al2023[0].id, "")
 }
 
-
-# SSM IAM
+# ── SSM 접속을 위한 IAM 역할 ──
+# SSH 대신 SSM으로 접속하려면 인스턴스에 SSM 권한이 있어야 한다.
+# AmazonSSMManagedInstanceCore 정책이 SSM Agent ↔ Systems Manager 통신을 허용.
 resource "aws_iam_role" "this" {
-  count = local.enabled
-  name  = "${local.name}-role"
+  count                = local.enabled
+  name                 = "${local.name}-role"
+  permissions_boundary = var.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -42,12 +45,14 @@ resource "aws_iam_role" "this" {
   tags = merge(var.tags, { Name = "${local.name}-role" })
 }
 
+# SSM 코어 권한 (세션 매니저 접속의 핵심)
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   count      = local.enabled
   role       = aws_iam_role.this[0].name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# kubectl 권한용 — 최소권한 인라인 정책.
 resource "aws_iam_role_policy" "eks_describe" {
   count = local.enabled
   name  = "${local.name}-eks-describe"
@@ -70,13 +75,16 @@ resource "aws_iam_instance_profile" "this" {
   tags  = merge(var.tags, { Name = "${local.name}-profile" })
 }
 
-
-#SG
+# ── 보안그룹 ──
+# 인바운드: 없음 (SSH 안 열기 — SSM은 아웃바운드로 동작하므로 인바운드 규칙 불필요)
+# 아웃바운드: 전체 허용 (SSM 통신, 패키지 설치, EKS/RDS 접근)
 resource "aws_security_group" "this" {
   count       = local.enabled
   name        = "${local.name}-sg"
   description = "Bastion SG - no inbound (SSM only), all outbound"
   vpc_id      = var.vpc_id
+
+  # 인바운드 규칙 없음 — 의도된 것. SSH(22) 안 염.
 
   egress {
     description = "All outbound (SSM, package install, EKS/RDS access)"
@@ -89,8 +97,7 @@ resource "aws_security_group" "this" {
   tags = merge(var.tags, { Name = "${local.name}-sg" })
 }
 
-
-#Instance
+# ── Bastion 인스턴스 ──
 resource "aws_instance" "this" {
   count                  = local.enabled
   ami                    = local.ami_id
@@ -99,6 +106,7 @@ resource "aws_instance" "this" {
   iam_instance_profile   = aws_iam_instance_profile.this[0].name
   vpc_security_group_ids = [aws_security_group.this[0].id]
 
+  # 퍼블릭 IP 없음 (프라이빗 서브넷 + SSM 접속)
   associate_public_ip_address = false
 
   user_data = <<-EOF

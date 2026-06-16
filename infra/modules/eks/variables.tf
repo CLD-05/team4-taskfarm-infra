@@ -140,3 +140,8 @@ variable "addon_versions" {
   }
 }
 
+variable "permissions_boundary_arn" {
+  description = "IAM Role에 강제할 permissions boundary ARN (부트캠프 계정 정책). 없으면 null."
+  type        = string
+  default     = null
+}

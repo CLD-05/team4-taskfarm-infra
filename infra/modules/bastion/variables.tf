@@ -42,3 +42,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "permissions_boundary_arn" {
+  description = "IAM Role permissions boundary ARN (부트캠프 계정 정책)."
+  type        = string
+  default     = null
+}

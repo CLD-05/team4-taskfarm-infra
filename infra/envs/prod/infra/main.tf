@@ -41,18 +41,21 @@ module "eks" {
   namespace       = var.app_namespace
 
 
-  enable_pod_identity_s3 = false
-  addon_versions         = var.addon_versions
+  enable_pod_identity_s3   = false
+  addon_versions           = var.addon_versions
+  permissions_boundary_arn = var.permissions_boundary_arn
 }
 
 module "iam" {
   source = "../../../modules/iam"
 
-  env           = local.env
-  name_prefix   = local.name_prefix
-  github_org    = var.github_org
-  github_repo   = var.github_repo
-  ecr_repo_arns = module.ecr.repository_arns
+  env                      = local.env
+  name_prefix              = local.name_prefix
+  github_org               = var.github_org
+  github_repo              = var.github_repo
+  ecr_repo_arns            = module.ecr.repository_arns
+  create_oidc_provider     = false # 계정에 이미 존재
+  permissions_boundary_arn = var.permissions_boundary_arn
 
 }
 
@@ -79,10 +82,11 @@ module "rds" {
 module "bastion" {
   source = "../../../modules/bastion"
 
-  env               = local.env
-  enabled           = true
-  vpc_id            = module.vpc.vpc_id
-  private_subnet_id = module.vpc.private_subnet_ids[0]
+  env                      = local.env
+  enabled                  = true
+  vpc_id                   = module.vpc.vpc_id
+  private_subnet_id        = module.vpc.private_subnet_ids[0]
+  permissions_boundary_arn = var.permissions_boundary_arn
 }
 
 module "ecr" {
@@ -116,7 +120,7 @@ module "secrets" {
 }
 
 # route53: prod가 zone 소유 (create_zone=true).
-# ⚠️ apply 후 name_servers를 가비아 콘솔에 등록(수동 1회).
+# apply 후 name_servers를 가비아 콘솔에 등록(수동 1회).
 module "route53" {
   source = "../../../modules/route53"
 

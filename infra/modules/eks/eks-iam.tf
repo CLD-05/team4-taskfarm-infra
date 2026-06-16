@@ -13,9 +13,10 @@ data "aws_iam_policy_document" "cluster_assume" {
 }
 
 resource "aws_iam_role" "cluster" {
-  name               = "${var.name_prefix}-eks-cluster-role"
-  assume_role_policy = data.aws_iam_policy_document.cluster_assume.json
-  tags               = merge(var.tags, { Name = "${var.name_prefix}-eks-cluster-role" })
+  name                 = "${var.name_prefix}-eks-cluster-role"
+  permissions_boundary = var.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.cluster_assume.json
+  tags                 = merge(var.tags, { Name = "${var.name_prefix}-eks-cluster-role" })
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_policy" {
@@ -37,10 +38,11 @@ data "aws_iam_policy_document" "node_assume" {
 }
 
 resource "aws_iam_role" "node" {
-  count              = local.enabled_node_group ? 1 : 0
-  name               = "${var.name_prefix}-eks-node-role"
-  assume_role_policy = data.aws_iam_policy_document.node_assume[0].json
-  tags               = merge(var.tags, { Name = "${var.name_prefix}-eks-node-role" })
+  count                = local.enabled_node_group ? 1 : 0
+  name                 = "${var.name_prefix}-eks-node-role"
+  permissions_boundary = var.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.node_assume[0].json
+  tags                 = merge(var.tags, { Name = "${var.name_prefix}-eks-node-role" })
 }
 
 # 노드에 필요한 관리형 정책 3종
@@ -76,10 +78,11 @@ data "aws_iam_policy_document" "fargate_assume" {
 }
 
 resource "aws_iam_role" "fargate" {
-  count              = local.enabled_fargate_profile ? 1 : 0
-  name               = "${var.name_prefix}-eks-fargate-role"
-  assume_role_policy = data.aws_iam_policy_document.fargate_assume[0].json
-  tags               = merge(var.tags, { Name = "${var.name_prefix}-eks-fargate-role" })
+  count                = local.enabled_fargate_profile ? 1 : 0
+  name                 = "${var.name_prefix}-eks-fargate-role"
+  permissions_boundary = var.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.fargate_assume[0].json
+  tags                 = merge(var.tags, { Name = "${var.name_prefix}-eks-fargate-role" })
 }
 
 resource "aws_iam_role_policy_attachment" "fargate_exec" {
@@ -98,7 +101,8 @@ resource "aws_iam_role_policy_attachment" "fargate_exec" {
 resource "aws_iam_role" "ebs_csi" {
   count = local.enabled_node_group ? 1 : 0
 
-  name = "${var.name_prefix}-ebs-csi-irsa"
+  name                 = "${var.name_prefix}-ebs-csi-irsa"
+  permissions_boundary = var.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

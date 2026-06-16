@@ -67,3 +67,8 @@ variable "redis_node_type" {
   type    = string
   default = "cache.m7g.large"
 }
+
+variable "permissions_boundary_arn" {
+  type    = string
+  default = null
+}

@@ -1,0 +1,18 @@
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mError acquiring the state lock[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mError message: operation error S3: PutObject, https response error
+[31m│[0m [0mStatusCode: 403, RequestID: 0CYWSH25DHK7V831, HostID:
+[31m│[0m [0m1c3kPbTQZfMqC+o6A1oQf5JND7eMRefajY9XYTLdODitDXkZ88gfySPZcY+WtOdAMNFj+RSKCO0uC2afLm/mYlKPFxWvG1gr,
+[31m│[0m [0mapi error AccessDenied: Access Denied
+[31m│[0m [0munable to retrieve file from S3 bucket 'tfstate-lionkdt5-team4' with key
+[31m│[0m [0m'team4/prod/infra/terraform.tfstate.tflock': operation error S3: GetObject,
+[31m│[0m [0mhttps response error StatusCode: 403, RequestID: 0CYMHK543EVN7MZY, HostID:
+[31m│[0m [0m5xgaE8tJTuGtYsdYNTZ9CowvJlDYYVrtpTfDW4fwLcOiY7/nkd96s+xwkxH/2bPU6Xl5MUKQDQmqb3EgcVM9Zx21MScdUAMb,
+[31m│[0m [0mapi error AccessDenied: Access Denied
+[31m│[0m [0m
+[31m│[0m [0mTerraform acquires a state lock to protect the state from being written
+[31m│[0m [0mby multiple users at the same time. Please resolve the issue above and try
+[31m│[0m [0magain. For most commands, you can disable locking with the "-lock=false"
+[31m│[0m [0mflag, but this is not recommended.
+[31m╵[0m[0m

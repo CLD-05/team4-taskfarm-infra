@@ -29,7 +29,8 @@ locals {
 }
 
 resource "aws_iam_role" "github_actions" {
-  name = "${var.name_prefix}-gha-role"
+  name                 = "${var.name_prefix}-gha-role"
+  permissions_boundary = var.permissions_boundary_arn
 
   # trust policy = "누가 이 역할을 빌리나"
   assume_role_policy = jsonencode({
@@ -76,7 +77,7 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ecr:CompleteLayerUpload",
           "ecr:PutImage"
         ]
-        Resource = var.ecr_repo_arns # 특정 ECR 레포만
+        Resource = var.ecr_repo_arns
       }
     ]
   })

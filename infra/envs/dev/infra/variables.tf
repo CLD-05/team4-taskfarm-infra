@@ -46,3 +46,8 @@ variable "redis_node_type" {
   type    = string
   default = "cache.t4g.micro"
 }
+
+variable "permissions_boundary_arn" {
+  type    = string
+  default = null
+}
