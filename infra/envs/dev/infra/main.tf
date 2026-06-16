@@ -21,6 +21,7 @@ module "eks" {
   source = "../../../modules/eks"
 
   name_prefix         = local.name_prefix
+  team                = "team4"
   eks_cluster_version = var.eks_cluster_version
   compute_type        = "fargate"
 
@@ -59,13 +60,15 @@ module "rds" {
   eks_node_security_group_id = module.eks.app_security_group_id
   bastion_security_group_id  = null
 
-  instance_class          = var.rds_instance_class
-  multi_az                = false
-  create_read_replica     = false
-  deletion_protection     = false
-  skip_final_snapshot     = true
-  backup_retention_period = var.rds_backup_retention
-  max_allocated_storage   = var.rds_max_storage
+  instance_class              = var.rds_instance_class
+  multi_az                    = false
+  create_read_replica         = false
+  manage_master_user_password = false
+  master_password             = var.rds_master_password
+  deletion_protection         = false
+  skip_final_snapshot         = true
+  backup_retention_period     = var.rds_backup_retention
+  max_allocated_storage       = var.rds_max_storage
 }
 
 module "bastion" {

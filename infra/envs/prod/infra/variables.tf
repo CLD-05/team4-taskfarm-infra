@@ -72,3 +72,8 @@ variable "permissions_boundary_arn" {
   type    = string
   default = null
 }
+
+variable "rds_master_password" {
+  type      = string
+  sensitive = true
+}

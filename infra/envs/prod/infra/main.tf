@@ -21,6 +21,7 @@ module "eks" {
   source = "../../../modules/eks"
 
   name_prefix         = local.name_prefix
+  team                = "team4"
   eks_cluster_version = var.eks_cluster_version
   compute_type        = "node_group"
 
@@ -72,7 +73,8 @@ module "rds" {
   instance_class              = var.rds_instance_class
   read_replica_instance_class = var.rds_replica_instance_class
   multi_az                    = true
-  create_read_replica         = true
+  create_read_replica         = true # 백엔드 읽기분산용. (manage_master_user_password=false라 가능)
+  master_password             = var.rds_master_password
   deletion_protection         = true
   skip_final_snapshot         = false
   backup_retention_period     = var.rds_backup_retention
