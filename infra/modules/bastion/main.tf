@@ -1,3 +1,5 @@
+# modules/bastion/main.tf
+
 locals {
   enabled = var.enabled ? 1 : 0
   name    = "team4-${var.env}-bastion"

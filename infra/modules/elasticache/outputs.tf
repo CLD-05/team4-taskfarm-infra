@@ -1,19 +1,20 @@
+# modules/elasticache/outputs.tf
+
 output "redis_replication_group_id" {
   description = "ElastiCache Redis replication group ID"
   value       = aws_elasticache_replication_group.redis.id
 }
 
-# Redis Primary Endpoint => 애플리케이션이 redis에 쓰기/읽기 요청을 보낼 주소
+# Primary Endpoint => 앱이 쓰기/읽기(큐 포함) 보낼 주소
 output "redis_primary_endpoint_address" {
-  description = "Redis primary endpoint address"
-  # dev 단일 노드에서 이 값이 없으면 에러가 날 수도 있음
-  value = try(aws_elasticache_replication_group.redis.reader_endpoint_address, null)
+  description = "Redis primary endpoint address (쓰기·큐). 앱이 이걸 사용."
+  value       = aws_elasticache_replication_group.redis.primary_endpoint_address
 }
 
-# Redis Reader Endpoint => replica가 있는 경우 읽기 분산에 사용할 수 있는 주소
+# Reader Endpoint => replica(prod) 있을 때 읽기 분산용. dev 단일 노드면 없음 → null.
 output "redis_reader_endpoint_address" {
-  description = "Redis reader endpoint address"
-  value       = aws_elasticache_replication_group.redis.reader_endpoint_address
+  description = "Redis reader endpoint address (읽기 분산, prod replica만). dev는 null."
+  value       = try(aws_elasticache_replication_group.redis.reader_endpoint_address, null)
 }
 
 output "redis_port" {

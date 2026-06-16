@@ -1,10 +1,12 @@
+# modules/secrets/variables.tf
+
 variable "name_prefix" {
-  description = "Prefix used for Secrets Manager resource names, for example team4-dev or team4-prod."
+  description = "Prefix used for Secrets Manager resource names (예: team4-dev)."
   type        = string
 }
 
 variable "env" {
-  description = "Environment name. Dev uses immediate secret deletion."
+  description = "Environment name. dev는 즉시 삭제(recovery 0)."
   type        = string
 
   validation {
@@ -14,21 +16,18 @@ variable "env" {
 }
 
 variable "secret_base_path" {
-  description = "Base path for Secrets Manager secret names, for example team4/taskfarm."
+  description = "Secret 경로 베이스 (예: team4/taskfarm). 최종 경로: /base/env/name."
   type        = string
 }
 
 variable "secret_names" {
-  description = "Secret names to create under secret_base_path/env."
+  description = "생성할 secret 이름 목록 (값은 apply 후 수동 주입)."
   type        = list(string)
-
-  default = [
-    "gemini-api-key"
-  ]
+  default     = ["gemini-api-key"]
 }
 
 variable "recovery_window_in_days" {
-  description = "Recovery window in days for non-dev secrets."
+  description = "비-dev secret 복구 윈도우(일). 실수 삭제 복구용."
   type        = number
   default     = 7
 }

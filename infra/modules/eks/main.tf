@@ -8,12 +8,12 @@ locals {
   enabled_fargate_profile = var.compute_type == "fargate"
 
   # [FIX-1] enabled_pod_identity_s3 → enable_pod_identity_s3 (d 없음, variables.tf와 통일)
-  # Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
+  # ⚠️ Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
   enabled_pod_identity_s3 = var.compute_type == "node_group" && var.enable_pod_identity_s3
 }
 
 # ----------------------------------------------------------------------
-# CloudWatch 로그 그룹 생성 (잘 하셨습니다)
+# CloudWatch 로그 그룹 생성
 # ----------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "eks" {
   name = "/aws/eks/${var.name_prefix}-eks/cluster"
@@ -31,7 +31,7 @@ resource "aws_cloudwatch_log_group" "eks" {
 resource "aws_eks_cluster" "main" {
   name = "${var.name_prefix}-eks"
   # EKS 컨트롤 플레인이 사용할 IAM Role
-  role_arn = var.eks_cluster_role_arn
+  role_arn = local.cluster_role_arn
   version  = var.eks_cluster_version
 
   # 클러스터 인증 모드 API로 설정
@@ -48,7 +48,7 @@ resource "aws_eks_cluster" "main" {
 
     # 클러스터 보안 그룹
     security_group_ids = [
-      var.eks_cluster_sg_id
+      local.cluster_sg_id
     ]
 
     # eks api 퍼블릭/프라이빗 접근 제어
@@ -95,10 +95,10 @@ resource "aws_launch_template" "eks_node" {
 
   # 노드 EC2에 붙일 Security Group
   vpc_security_group_ids = [
-    var.eks_node_sg_id
+    local.node_sg_id
   ]
 
-  # 노드 루트 볼륨 설정 (gp3 + 암호화 — 잘 하셨습니다)
+  # 노드 루트 볼륨 설정 (gp3 + 암호화)
   block_device_mappings {
     device_name = "/dev/xvda"
 
@@ -134,7 +134,7 @@ resource "aws_eks_node_group" "main" {
 
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.name_prefix}-node-group"
-  node_role_arn   = var.eks_node_role_arn
+  node_role_arn   = local.node_role_arn
   subnet_ids      = var.private_subnet_ids
 
   instance_types = var.node_group_instance_types
@@ -170,7 +170,7 @@ resource "aws_eks_fargate_profile" "app" {
 
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = "${var.name_prefix}-app-fargate-profile"
-  pod_execution_role_arn = var.fargate_pod_execution_role_arn
+  pod_execution_role_arn = local.fargate_role_arn
   subnet_ids             = var.private_subnet_ids
 
   selector {
@@ -186,14 +186,14 @@ resource "aws_eks_fargate_profile" "app" {
 
 # ----------------------------------------------------------------------
 # CoreDNS용 Fargate Profile — fargate(dev)만
-# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요. 잘 하셨습니다)
+# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요.)
 # ----------------------------------------------------------------------
 resource "aws_eks_fargate_profile" "coredns" {
   count = local.enabled_fargate_profile ? 1 : 0
 
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = "${var.name_prefix}-coredns-fargate-profile"
-  pod_execution_role_arn = var.fargate_pod_execution_role_arn
+  pod_execution_role_arn = local.fargate_role_arn
   subnet_ids             = var.private_subnet_ids
 
   selector {
@@ -211,7 +211,7 @@ resource "aws_eks_fargate_profile" "coredns" {
 }
 
 # ----------------------------------------------------------------------
-# Access Entry = kubectl로 클러스터 접근할 IAM Role 등록 (잘 하셨습니다)
+# Access Entry = kubectl로 클러스터 접근할 IAM Role 등록
 # ----------------------------------------------------------------------
 resource "aws_eks_access_entry" "cluster_admin" {
   cluster_name  = aws_eks_cluster.main.name

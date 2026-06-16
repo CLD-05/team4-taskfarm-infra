@@ -1,5 +1,7 @@
+# modules/elasticache/variables.tf
+
 variable "name_prefix" {
-  description = "Name prefix for ElastiCache"
+  description = "Name prefix for ElastiCache (예: team4-dev)"
   type        = string
 }
 
@@ -8,26 +10,20 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "db_subnet_ids" {
+  description = "private subnet ids for ElastiCache subnet group (vpc 모듈 db subnet)"
+  type        = list(string)
+}
+
+variable "app_security_group_id" {
+  description = "EKS node(app) security group id — 이 SG에서만 Redis 6379 허용"
+  type        = string
+}
+
 variable "redis_port" {
   description = "Redis Port"
   type        = number
   default     = 6379
-}
-
-variable "app_security_group_id" {
-  description = "EKS node security group id"
-  type        = string
-}
-
-variable "tags" {
-  description = "Common tags"
-  type        = map(string)
-  default     = {}
-}
-
-variable "db_subnet_ids" {
-  description = "private subnet id for ElastiCache"
-  type        = list(string)
 }
 
 variable "redis_parameter_group_family" {
@@ -43,61 +39,42 @@ variable "redis_engine_version" {
 }
 
 variable "redis_node_type" {
-  description = "redis node type"
+  description = "redis node type (dev: cache.t4g.micro, prod: cache.m7g.large)"
   type        = string
 }
 
 variable "num_cache_clusters" {
-  description = "redis node num"
+  description = "redis node 개수 (dev:1, prod:2+)"
   type        = number
   default     = 1
 }
 
 variable "automatic_failover_enabled" {
-  description = "automatic failover for redis"
+  description = "automatic failover (dev:false, prod:true)"
   type        = bool
   default     = false
 }
 
 variable "multi_az_enabled" {
-  description = "Multi-AZ for redis"
+  description = "Multi-AZ (dev:false, prod:true)"
   type        = bool
   default     = false
 }
 
 variable "at_rest_encryption_enabled" {
-  description = "rest encryption"
+  description = "at-rest encryption"
   type        = bool
   default     = true
 }
 
 variable "transit_encryption_enabled" {
-  description = "transit encryption"
+  description = "transit(TLS) encryption. ⚠️ true면 Spring Redis 클라이언트도 TLS 접속 설정 필요."
   type        = bool
-  # 이거 true 하면 Spring Boot Redis 클라이언트도 TLS 접속 해야 함
-  default = false
+  default     = false
 }
 
-# variable "snapshot_retention_limit" {
-#   description = "Number of days to retain Redis snapshots"
-#   type        = number
-#   default     = 0
-# }
-
-# variable "snapshot_window" {
-#   description = "time which snapstots are created"
-#   type        = string
-#   default     = "18:00-19:00"
-# }
-
-# variable "maintenance_window" {
-#   description = "weekly time range for maintenance"
-#   type        = string
-#   default     = "sun:19:00-sun:20:00"
-# }
-
-# variable "apply_immediately" {
-#   description = "Apply changes immediately"
-#   type        = bool
-#   default     = false
-# }
+variable "tags" {
+  description = "Common tags"
+  type        = map(string)
+  default     = {}
+}

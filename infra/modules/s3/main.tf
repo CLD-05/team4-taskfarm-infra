@@ -1,3 +1,5 @@
+# modules/s3/main.tf
+
 locals {
   resource_prefix = lower(replace(var.name_prefix, "_", "-"))
 }
@@ -15,18 +17,16 @@ resource "aws_s3_bucket" "this" {
 
 resource "aws_s3_bucket_ownership_controls" "this" {
   for_each = aws_s3_bucket.this
-
-  bucket = each.value.id
+  bucket   = each.value.id
 
   rule {
-    object_ownership = "BucketOwnerEnforced"
+    object_ownership = "BucketOwnerEnforced" # ACL 비활성 (요즘 권장)
   }
 }
 
 resource "aws_s3_bucket_public_access_block" "this" {
   for_each = aws_s3_bucket.this
-
-  bucket = each.value.id
+  bucket   = each.value.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -36,8 +36,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
 
 resource "aws_s3_bucket_versioning" "this" {
   for_each = aws_s3_bucket.this
-
-  bucket = each.value.id
+  bucket   = each.value.id
 
   versioning_configuration {
     status = var.buckets[each.key].versioning_enabled ? "Enabled" : "Suspended"
@@ -46,23 +45,20 @@ resource "aws_s3_bucket_versioning" "this" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
   for_each = aws_s3_bucket.this
-
-  bucket = each.value.id
+  bucket   = each.value.id
 
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = var.kms_key_arn == null ? "AES256" : "aws:kms"
       kms_master_key_id = var.kms_key_arn
     }
-
     bucket_key_enabled = var.kms_key_arn == null ? false : true
   }
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   for_each = {
-    for key, bucket in var.buckets :
-    key => bucket
+    for key, bucket in var.buckets : key => bucket
     if bucket.lifecycle_enabled
   }
 
@@ -85,3 +81,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     }
   }
 }
+
+# =====================================================================
+# [TODO] CloudFront OAC 버킷 정책 (CloudFront 모듈 추가 시)
+# CloudFront가 OAC로 이 버킷을 읽으려면, 버킷 정책에
+# "이 CloudFront distribution만 s3:GetObject 허용"을 박아야 함.
+# CloudFront 모듈의 distribution ARN을 받아서 aws_s3_bucket_policy 추가 예정.
+#
+# resource "aws_s3_bucket_policy" "cloudfront_oac" {
+#   for_each = { ... 정적 버킷만 ... }
+#   bucket   = aws_s3_bucket.this[each.key].id
+#   policy   = jsonencode({ ... Principal=cloudfront.amazonaws.com,
+#                            Condition=AWS:SourceArn=distribution_arn ... })
+# }
+# =====================================================================

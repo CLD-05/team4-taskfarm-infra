@@ -1,5 +1,12 @@
+# modules/ecr/main.tf
+
+locals {
+  # team4-dev-taskfarm-user 형태로 조합
+  repo_full_names = { for short in var.repository_names : short => "${var.name_prefix}-${short}" }
+}
+
 resource "aws_ecr_repository" "this" {
-  for_each = toset(var.repository_names)
+  for_each = local.repo_full_names
 
   name                 = each.value
   image_tag_mutability = var.image_tag_mutability

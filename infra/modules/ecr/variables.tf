@@ -1,5 +1,12 @@
+# modules/ecr/variables.tf
+
+variable "name_prefix" {
+  description = "리소스 이름 접두사 (예: team4-dev). ECR 이름이 team4-dev-taskfarm-user 형태가 됨."
+  type        = string
+}
+
 variable "repository_names" {
-  description = "ECR repository names to create, for example taskfarm-user and taskfarm-admin."
+  description = "ECR 레포 짧은 이름 목록. 앞에 name_prefix가 붙음 (예: taskfarm-user → team4-dev-taskfarm-user)."
   type        = list(string)
   default     = ["taskfarm-user", "taskfarm-admin"]
 

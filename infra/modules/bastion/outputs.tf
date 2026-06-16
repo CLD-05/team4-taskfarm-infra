@@ -1,3 +1,5 @@
+# modules/bastion/outputs.tf
+
 output "instance_id" {
   description = "Bastion 인스턴스 ID. SSM 접속: aws ssm start-session --target <이 값>. 미생성 시 null"
   value       = try(aws_instance.this[0].id, null)

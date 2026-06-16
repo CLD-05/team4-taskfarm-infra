@@ -6,15 +6,31 @@ output "cluster_name" {
 }
 
 output "cluster_endpoint" {
-  description = "EKS cluster endpoint"
+  description = "EKS cluster endpoint (platform-addons provider host)"
   value       = aws_eks_cluster.main.endpoint
-  sensitive   = true
+  # [FIX] 원본 sensitive=true 제거: endpoint는 비밀이 아니고, platform-addons가
+  #       remote_state로 읽어 provider host로 써야 하는데 sensitive면 다루기 불편.
+}
+
+output "cluster_ca" {
+  description = "EKS cluster CA (base64). platform-addons provider cluster_ca_certificate용"
+  value       = aws_eks_cluster.main.certificate_authority[0].data
+}
+
+output "oidc_provider_arn" {
+  description = "IRSA OIDC provider ARN (ALB Controller/ESO/ExternalDNS가 사용)"
+  value       = aws_iam_openid_connect_provider.this.arn
+}
+
+output "oidc_provider_url" {
+  description = "IRSA OIDC provider URL (https:// 제외 - trust policy condition key에 사용)"
+  value       = replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")
 }
 
 output "app_security_group_id" {
   description = "Security group ID used by application compute layer"
   value = var.compute_type == "node_group" ? (
-    var.eks_node_sg_id
+    local.node_sg_id
     ) : (
     aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
   )

@@ -1,4 +1,5 @@
-# modules/bastion/versions.tf
+# modules/ecr/versions.tf
+# [ADD] versions.tf 추가 (버전 고정 — 팀 결정).
 
 terraform {
   required_version = "~> 1.15.0"

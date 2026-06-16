@@ -1,3 +1,5 @@
+# modules/bastion/variables.tf
+
 variable "env" {
   description = "환경 식별자 (dev/prod). 리소스 이름·태그에 사용"
   type        = string
@@ -36,7 +38,7 @@ variable "ami_id" {
 }
 
 variable "tags" {
-  description = "공통 태그 (provider default_tags 외 추가분). team 태그는 default_tags에서 소문자로 주입"
+  description = "공통 태그 (provider default_tags 외 추가분). team 태그는 default_tags에서 대문자로 주입"
   type        = map(string)
   default     = {}
 }

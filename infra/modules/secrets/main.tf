@@ -1,3 +1,5 @@
+# modules/secrets/main.tf
+
 locals {
   resource_prefix  = lower(replace(var.name_prefix, "_", "-"))
   secret_base_path = trim(var.secret_base_path, "/")
@@ -18,6 +20,7 @@ resource "aws_kms_alias" "secrets" {
   target_key_id = aws_kms_key.secrets.key_id
 }
 
+# 빈 secret(껍데기)만 생성. 값은 수동 주입.
 resource "aws_secretsmanager_secret" "this" {
   for_each = toset(var.secret_names)
 

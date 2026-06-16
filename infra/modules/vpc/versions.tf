@@ -6,7 +6,7 @@
 #         "~>" 로 마이너 범위만 허용해 버전 고정 — 팀 결정 사항.
 
 terraform {
-  required_version = "~> 1.14.0"
+  required_version = "~> 1.15.0"
 
   required_providers {
     aws = {

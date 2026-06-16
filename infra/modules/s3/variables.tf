@@ -1,10 +1,12 @@
+# modules/s3/variables.tf
+
 variable "name_prefix" {
   description = "Prefix used for S3 bucket names, for example team4-dev or team4-prod."
   type        = string
 }
 
 variable "env" {
-  description = "Environment name. dev buckets are easier to destroy."
+  description = "Environment name. dev buckets are easier to destroy (force_destroy)."
   type        = string
 
   validation {
@@ -14,7 +16,7 @@ variable "env" {
 }
 
 variable "buckets" {
-  description = "S3 buckets to create."
+  description = "S3 buckets to create. key는 식별자(app 등), suffix는 실제 이름 뒷부분."
   type = map(object({
     suffix                             = string
     versioning_enabled                 = bool
@@ -37,7 +39,7 @@ variable "buckets" {
 }
 
 variable "kms_key_arn" {
-  description = "Optional KMS key ARN for S3 encryption. If null, SSE-S3 is used."
+  description = "Optional KMS key ARN for S3 encryption. If null, SSE-S3(AES256) is used."
   type        = string
   default     = null
 }
