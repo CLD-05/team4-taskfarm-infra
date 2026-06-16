@@ -16,8 +16,8 @@ variable "chart_versions" {
   default = {
     alb_controller   = "" # A 담당 채움 (예: 1.8.1)
     metrics_server   = "" # A 담당
-    external_secrets = "" # B 담당
-    external_dns     = "" # B 담당
+    external_secrets = "2.6.0" # B 담당
+    external_dns     = "1.21.1" # B 담당
     argocd           = "" # C 담당
     kube_prometheus  = "" # D 담당
     keda             = "" # D 담당
