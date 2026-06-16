@@ -1,26 +1,69 @@
-# =====================================================================
-# [담당 B] External Secrets Operator (ESO)
-# =====================================================================
-# 역할: AWS Secrets Manager의 시크릿을 K8s Secret으로 동기화.
-#       (Gemini API 키 등 → Pod에 평문 없이 주입. 이 앱 보안 핵심)
-# 방식: helm_release(ESO) + IRSA(Secrets Manager 읽기 권한)
-#
-# 구현 체크리스트:
-#  [ ] IRSA role 생성 (OIDC trust)
-#      - serviceaccount: external-secrets / external-secrets
-#      - IAM policy: secretsmanager:GetSecretValue, DescribeSecret (해당 시크릿 ARN으로 좁히기)
-#  [ ] helm_release "external-secrets"
-#      - repository: https://charts.external-secrets.io
-#      - chart: external-secrets
-#      - version: var.chart_versions.external_secrets (고정!)
-#      - namespace: external-secrets (create_namespace=true)
-#      - serviceAccount IRSA annotation
-#  [ ] (선택) ClusterSecretStore 매니페스트 — kubernetes_manifest 또는 앱 레포 매니페스트로.
-#      ※ ClusterSecretStore/ExternalSecret 리소스는 config 레포(K8s 매니페스트)에서
-#        관리할 수도 있음. 팀 합의 — 여기선 ESO 설치까지만 권장.
-#
-# ⚠️ Secrets Manager에 실제 시크릿이 있어야(secrets 모듈 — infra). ARN을 remote_state로 받거나 변수로.
-# ⚠️ IRSA policy는 특정 시크릿 ARN으로 좁힐 것 (전체 secretsmanager:* 금지 — 최소권한).
+locals {
+  external_secrets_namespace       = "external-secrets"
+  external_secrets_service_account = "external-secrets"
+}
 
-# resource "aws_iam_role" "external_secrets" { ... }
-# resource "helm_release" "external_secrets" { ... }
+resource "aws_iam_role" "external_secrets" {
+  name = "${local.name_prefix}-external-secrets"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = local.oidc_provider_arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
+          "${local.oidc_provider_url}:sub" = "system:serviceaccount:${local.external_secrets_namespace}:${local.external_secrets_service_account}"
+        }
+      }
+    }]
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-external-secrets"
+  }
+}
+
+resource "aws_iam_role_policy" "external_secrets" {
+  name = "${local.name_prefix}-external-secrets"
+  role = aws_iam_role.external_secrets.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      Resource = var.external_secrets_secret_arns
+    }]
+  })
+}
+
+resource "helm_release" "external_secrets" {
+  name             = "external-secrets"
+  repository       = "https://charts.external-secrets.io"
+  chart            = "external-secrets"
+  version          = var.chart_versions.external_secrets
+  namespace        = local.external_secrets_namespace
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      serviceAccount = {
+        create = true
+        name   = local.external_secrets_service_account
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.external_secrets.arn
+        }
+      }
+    })
+  ]
+
+  depends_on = [aws_iam_role_policy.external_secrets]
+}
