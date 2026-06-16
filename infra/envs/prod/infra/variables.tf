@@ -73,3 +73,8 @@ variable "rds_max_storage" {
   type    = number
   default = 500
 }
+
+variable "redis_node_type" {
+  type    = string
+  default = "cache.m7g.large"
+}

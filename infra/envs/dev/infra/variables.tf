@@ -48,3 +48,8 @@ variable "rds_max_storage" {
   type    = number
   default = 100
 }
+
+variable "redis_node_type" {
+  type    = string
+  default = "cache.t4g.micro"
+}
