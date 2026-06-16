@@ -80,7 +80,7 @@ resource "aws_subnet" "db" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-db-${each.key}" })
 }
 
-# ── PROD: AZ별 NAT Gateway (원본 유지) ──
+# ── PROD: AZ별 NAT Gateway (원본 유지 — 잘 하셨습니다) ──
 resource "aws_eip" "nat" {
   for_each = var.env == "prod" ? local.public_subnets : {}
 
@@ -98,16 +98,17 @@ resource "aws_nat_gateway" "nat" {
   depends_on = [aws_internet_gateway.this]
 }
 
-# ── DEV: NAT Instance (fck-nat, t4g.nano) — 원본 유지 ──
-# fck-nat AMI(arm64) + t4g.nano + source_dest_check=false 까지 정확
+# ── DEV: NAT Instance (fck-nat, t4g.nano) — 원본 유지, 잘 하셨습니다 ──
+# fck-nat AMI(arm64) + t4g.nano + source_dest_check=false 까지 정확합니다.
 data "aws_ami" "nat" {
   count       = var.env == "dev" ? 1 : 0
   most_recent = true
   owners      = ["568608671756"]
 
   filter {
-    name   = "name"
-    values = ["fck-nat-amzn-*"]
+    name = "name"
+    # [FIX] fck-nat-amzn-* → fck-nat-al2023-* (현재 공식 AMI 이름. amzn2 시절 패턴이 옛날)
+    values = ["fck-nat-al2023-*"]
   }
   filter {
     name   = "architecture"
