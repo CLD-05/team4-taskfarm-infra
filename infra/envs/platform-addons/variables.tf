@@ -3,6 +3,11 @@
 variable "env" {
   description = "환경 (dev/prod). remote_state key·태그·addon 분기에 사용"
   type        = string
+
+  validation {
+    condition     = contains(["dev", "prod"], var.env)
+    error_message = "env must be either dev or prod."
+  }
 }
 
 variable "chart_versions" {
@@ -11,12 +16,56 @@ variable "chart_versions" {
   default = {
     alb_controller   = ""       # A 담당 채움 (예: 1.8.1)
     metrics_server   = ""       # A 담당
-    external_secrets = ""       # B 담당
-    external_dns     = ""       # B 담당
+    external_secrets = "2.6.0"  # B 담당
+    external_dns     = "1.21.1" # B 담당
     argocd           = ""       # C 담당
     kube_prometheus  = "61.7.2" # D 담당
     keda             = "2.15.1" # D 담당
   }
+}
+
+variable "external_secrets_secret_arns" {
+  description = "Secrets Manager secret ARNs that External Secrets Operator is allowed to read."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.external_secrets_secret_arns) > 0
+    error_message = "external_secrets_secret_arns must contain at least one Secrets Manager secret ARN."
+  }
+}
+
+variable "route53_hosted_zone_id" {
+  description = "Route53 hosted zone ID that ExternalDNS is allowed to manage."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.env != "prod" || try(length(trimspace(var.route53_hosted_zone_id)) > 0, false)
+    error_message = "prod env requires route53_hosted_zone_id."
+  }
+}
+
+variable "external_dns_domain_filters" {
+  description = "Domain suffixes that ExternalDNS is allowed to manage, for example example.com."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = var.env != "prod" || length(var.external_dns_domain_filters) > 0
+    error_message = "prod env requires external_dns_domain_filters."
+  }
+}
+
+locals {
+  name_prefix       = "team4-${var.env}"
+  oidc_provider_arn = data.terraform_remote_state.infra.outputs.oidc_provider_arn
+  oidc_provider_url = trimprefix(
+    try(
+      data.terraform_remote_state.infra.outputs.oidc_provider_url,
+      trimprefix(local.oidc_provider_arn, "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/")
+    ),
+    "https://"
+  )
 }
 
 variable "grafana_ingress_enabled" {
@@ -44,7 +93,7 @@ variable "grafana_admin_existing_secret" {
   # dev에서는 monitoring을 안쓰니까 secret 값을 넣을 필요 없음
   default = ""
 
-  # prod에는 빈 값이면 안됨 
+  # prod에는 빈 값이면 안됨
   validation {
     condition     = var.env != "prod" || length(var.grafana_admin_existing_secret) > 0
     error_message = "prod 환경에서는 grafana_admin_existing_secret을 반드시 입력해야 합니다."
