@@ -21,6 +21,7 @@ module "eks" {
   source = "../../../modules/eks"
 
   name_prefix         = local.name_prefix
+  team                = "team4"
   eks_cluster_version = var.eks_cluster_version
   compute_type        = "fargate"
 
@@ -34,18 +35,21 @@ module "eks" {
   admin_user_arns = var.admin_user_arns
   namespace       = var.app_namespace
 
-  enable_pod_identity_s3 = false
-  addon_versions         = var.addon_versions
+  enable_pod_identity_s3   = false
+  addon_versions           = var.addon_versions
+  permissions_boundary_arn = var.permissions_boundary_arn
 }
 
 module "iam" {
   source = "../../../modules/iam"
 
-  env           = local.env
-  name_prefix   = local.name_prefix
-  github_org    = var.github_org
-  github_repo   = var.github_repo
-  ecr_repo_arns = module.ecr.repository_arns
+  env                      = local.env
+  name_prefix              = local.name_prefix
+  github_org               = var.github_org
+  github_repo              = var.github_repo
+  ecr_repo_arns            = module.ecr.repository_arns
+  create_oidc_provider     = false # 계정에 이미 존재
+  permissions_boundary_arn = var.permissions_boundary_arn
 
 }
 
@@ -62,6 +66,7 @@ module "rds" {
   instance_class          = var.rds_instance_class
   multi_az                = false
   create_read_replica     = false
+  master_password         = var.rds_master_password
   deletion_protection     = false
   skip_final_snapshot     = true
   backup_retention_period = var.rds_backup_retention
@@ -71,10 +76,11 @@ module "rds" {
 module "bastion" {
   source = "../../../modules/bastion"
 
-  env               = local.env
-  enabled           = false
-  vpc_id            = module.vpc.vpc_id
-  private_subnet_id = module.vpc.private_subnet_ids[0]
+  env                      = local.env
+  enabled                  = false
+  vpc_id                   = module.vpc.vpc_id
+  private_subnet_id        = module.vpc.private_subnet_ids[0]
+  permissions_boundary_arn = var.permissions_boundary_arn
 }
 
 module "ecr" {
@@ -107,14 +113,5 @@ module "secrets" {
   secret_names     = ["gemini-api-key"]
 }
 
-# route53: dev는 zone 생성 안 함(prod 소유). 참조만.
-# prod infra가 먼저 apply돼서 zone이 있어야 dev가 참조 가능.
-module "route53" {
-  source = "../../../modules/route53"
-
-  name_prefix = local.name_prefix
-  domain_name = "taskfarm.site"
-  create_zone = false # dev는 참조만
-}
 
 # dev는 s3 정적버킷 없음(CloudFront prod만). 필요 시 추가.

@@ -145,3 +145,9 @@ variable "permissions_boundary_arn" {
   type        = string
   default     = null
 }
+
+variable "team" {
+  description = "팀 식별자 (예: team4). EC2 인스턴스 Team 태그 필수 — 계정 정책 DenyRunInstancesWithoutTeamTag 대응."
+  type        = string
+  default     = "team4"
+}

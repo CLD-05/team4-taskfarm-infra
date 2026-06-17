@@ -44,9 +44,3 @@ output "kms_key_arn" {
   description = "KMS key ARN used for RDS storage encryption."
   value       = aws_kms_key.rds.arn
 }
-
-output "master_user_secret_arn" {
-  description = "Secrets Manager secret ARN managed by RDS for the master user password (ESO/앱이 DB 비번 받을 때)."
-  value       = aws_db_instance.primary.master_user_secret[0].secret_arn
-  sensitive   = true
-}

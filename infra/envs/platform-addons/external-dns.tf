@@ -1,11 +1,13 @@
 locals {
   external_dns_namespace       = "external-dns"
   external_dns_service_account = "external-dns"
-  external_dns_policy          = var.env == "prod" ? "upsert-only" : "sync"
-  route53_hosted_zone_arn      = "arn:aws:route53:::hostedzone/${var.route53_hosted_zone_id}"
+  external_dns_policy          = "upsert-only"
+  route53_hosted_zone_arn      = var.env == "prod" ? "arn:aws:route53:::hostedzone/${var.route53_hosted_zone_id}" : null
 }
 
 resource "aws_iam_role" "external_dns" {
+  count = var.env == "prod" ? 1 : 0
+
   name = "${local.name_prefix}-external-dns"
 
   assume_role_policy = jsonencode({
@@ -31,8 +33,10 @@ resource "aws_iam_role" "external_dns" {
 }
 
 resource "aws_iam_role_policy" "external_dns" {
+  count = var.env == "prod" ? 1 : 0
+
   name = "${local.name_prefix}-external-dns"
-  role = aws_iam_role.external_dns.id
+  role = aws_iam_role.external_dns[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -58,6 +62,8 @@ resource "aws_iam_role_policy" "external_dns" {
 }
 
 resource "helm_release" "external_dns" {
+  count = var.env == "prod" ? 1 : 0
+
   name             = "external-dns"
   repository       = "https://kubernetes-sigs.github.io/external-dns/"
   chart            = "external-dns"
@@ -78,7 +84,7 @@ resource "helm_release" "external_dns" {
         create = true
         name   = local.external_dns_service_account
         annotations = {
-          "eks.amazonaws.com/role-arn" = aws_iam_role.external_dns.arn
+          "eks.amazonaws.com/role-arn" = aws_iam_role.external_dns[0].arn
         }
       }
     })

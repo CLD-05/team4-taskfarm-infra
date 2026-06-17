@@ -84,9 +84,10 @@ resource "aws_db_instance" "primary" {
   username = var.username
   port     = var.port
 
-  # 비밀번호를 Secrets Manager에 위임 (tfvars에 평문 없음)
-  manage_master_user_password   = true
-  master_user_secret_kms_key_id = aws_kms_key.rds.key_id
+  # [CHANGE] read replica(백엔드 읽기분산)를 쓰므로 manage_master_user_password 미사용.
+  #   (manage_master_user_password=true면 replica 생성 불가 — AWS 제약)
+  #   비번은 var.master_password(tfvars, gitignore라 git 노출 0). state는 S3 암호화.
+  password = var.master_password
 
   # [FIX-1] vpc 모듈이 만든 db subnet group 이름을 받아서 사용
   db_subnet_group_name   = var.db_subnet_group_name

@@ -8,7 +8,7 @@ locals {
   enabled_fargate_profile = var.compute_type == "fargate"
 
   # [FIX-1] enabled_pod_identity_s3 → enable_pod_identity_s3 (d 없음, variables.tf와 통일)
-  # Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
+  # ⚠️ Fargate는 eks-pod-identity-agent 미지원(DaemonSet/privileged) → node_group일 때만.
   enabled_pod_identity_s3 = var.compute_type == "node_group" && var.enable_pod_identity_s3
 }
 
@@ -98,7 +98,7 @@ resource "aws_launch_template" "eks_node" {
     local.node_sg_id
   ]
 
-  # 노드 루트 볼륨 설정 (gp3 + 암호화)
+  # 노드 루트 볼륨 설정 (gp3 + 암호화 — 잘 하셨습니다)
   block_device_mappings {
     device_name = "/dev/xvda"
 
@@ -112,8 +112,12 @@ resource "aws_launch_template" "eks_node" {
 
   tag_specifications {
     resource_type = "instance"
+    # Team 태그 필수 — 계정 정책(DenyRunInstancesWithoutTeamTag)이
+    #    EC2 RunInstances 시 Team 태그 없으면 거부. default_tags는 LT가 띄우는
+    #    인스턴스엔 전달 안 되므로 여기 명시.
     tags = merge(var.tags, {
       Name = "${var.name_prefix}-eks-node"
+      Team = var.team
     })
   }
 
@@ -121,6 +125,7 @@ resource "aws_launch_template" "eks_node" {
     resource_type = "volume"
     tags = merge(var.tags, {
       Name = "${var.name_prefix}-eks-node-volume"
+      Team = var.team
     })
   }
 
@@ -186,7 +191,7 @@ resource "aws_eks_fargate_profile" "app" {
 
 # ----------------------------------------------------------------------
 # CoreDNS용 Fargate Profile — fargate(dev)만
-# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요)
+# (dev에서 CoreDNS가 Fargate로 뜨려면 이게 꼭 필요. 잘 하셨습니다)
 # ----------------------------------------------------------------------
 resource "aws_eks_fargate_profile" "coredns" {
   count = local.enabled_fargate_profile ? 1 : 0

@@ -31,3 +31,91 @@
 
 # resource "helm_release" "kube_prometheus_stack" { ... }
 # resource "helm_release" "keda" { ... }
+
+locals {
+  monitoring_enabled = var.env == "prod"
+}
+
+resource "helm_release" "kube_prometheus_stack" {
+  count = local.monitoring_enabled ? 1 : 0
+
+  name       = "kube-prometheus-stack"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-prometheus-stack"
+  version    = var.chart_versions.kube_prometheus
+  # kube-prometheus-stack을 설치할 namespace
+  namespace        = "monitoring"
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      # Grafana 활성화
+      grafana = {
+        enabled = true
+
+        # Grafana admin 계정 정보를 Kubernetes Secret에서 가져오도록 설정
+        admin = {
+          existingSecret = var.grafana_admin_existing_secret
+          userKey        = var.grafana_admin_user_key
+          passwordKey    = var.grafana_admin_password_key
+        }
+
+        # Grafana를 외부에서 접속할 수 있게 ingress 설정
+        ingress = {
+          enabled          = var.grafana_ingress_enabled
+          ingressClassName = "alb"
+
+          annotations = var.grafana_ingress_enabled ? {
+            "alb.ingress.kubernetes.io/scheme"      = "internet-facing"
+            "alb.ingress.kubernetes.io/target-type" = "ip"
+            "alb.ingress.kubernetes.io/listen-ports" = jsonencode([
+              {
+                HTTP = 80
+              }
+            ])
+          } : {} # grafana_ingress_enabled가 false면 annotation을 비워둔다.
+
+          # Grafana Ingress에 사용할 host를 설정하는 부분
+          hosts = var.grafana_ingress_enabled ? [
+            var.grafana_host
+          ] : []
+        }
+      }
+
+      prometheus = {
+        prometheusSpec = {
+          retention = var.prometheus_retention
+
+          # 프로메테우스 데이터를 영구 저장소에 저장하기 위한 설정
+          storageSpec = {
+            volumeClaimTemplate = {
+              spec = {
+                storageClassName = var.prometheus_storage_class_name
+                accessModes      = ["ReadWriteOnce"]
+
+                resources = {
+                  requests = {
+                    storage = var.prometheus_storage_size
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+  ]
+
+  depends_on = [helm_release.alb_controller]
+}
+
+resource "helm_release" "keda" {
+  count = local.monitoring_enabled ? 1 : 0
+  # Keda 설치
+  name             = "keda"
+  repository       = "https://kedacore.github.io/charts"
+  chart            = "keda"
+  version          = var.chart_versions.keda
+  namespace        = "keda"
+  create_namespace = true
+}

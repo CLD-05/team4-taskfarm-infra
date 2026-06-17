@@ -151,3 +151,11 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+
+variable "master_password" {
+  description = "마스터 비번 (manage_master_user_password=false일 때). tfvars로 주입(gitignore). 8자 이상."
+  type        = string
+  default     = null
+  sensitive   = true
+}
