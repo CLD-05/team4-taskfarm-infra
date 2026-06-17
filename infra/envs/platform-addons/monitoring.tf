@@ -32,7 +32,13 @@
 # resource "helm_release" "kube_prometheus_stack" { ... }
 # resource "helm_release" "keda" { ... }
 
+locals {
+  monitoring_enabled = var.env == "prod"
+}
+
 resource "helm_release" "kube_prometheus_stack" {
+  count = local.monitoring_enabled ? 1 : 0
+
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
@@ -104,6 +110,7 @@ resource "helm_release" "kube_prometheus_stack" {
 }
 
 resource "helm_release" "keda" {
+  count = local.monitoring_enabled ? 1 : 0
   # Keda 설치
   name             = "keda"
   repository       = "https://kedacore.github.io/charts"

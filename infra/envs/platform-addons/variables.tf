@@ -37,10 +37,18 @@ variable "grafana_host" {
   }
 }
 
-# tfvars에 반드시 입력 넣어야 함
+# prod에서는 tfvars에 반드시 입력 넣어야 함
 variable "grafana_admin_existing_secret" {
   description = "Existing Kubernetes Secret name for Grafana admin credentials"
   type        = string
+  # dev에서는 monitoring을 안쓰니까 secret 값을 넣을 필요 없음
+  default = ""
+
+  # prod에는 빈 값이면 안됨 
+  validation {
+    condition     = var.env != "prod" || length(var.grafana_admin_existing_secret) > 0
+    error_message = "prod 환경에서는 grafana_admin_existing_secret을 반드시 입력해야 합니다."
+  }
 }
 
 variable "prometheus_retention" {
