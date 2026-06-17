@@ -37,9 +37,19 @@ resource "aws_eks_addon" "coredns" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
+  # [추가 1] Fargate면 coredns를 Fargate용으로 설정 (computeType)
+  configuration_values = var.compute_type == "fargate" ? jsonencode({
+    computeType = "Fargate"
+  }) : null
+
+  # [추가 2] Fargate는 파드 스케줄링이 느려 timeout 여유
+  timeouts {
+    create = "30m"
+    update = "30m"
+  }
+
   tags = merge(var.tags, { Name = "${var.name_prefix}-coredns" })
 
-  # Fargate면 coredns profile 뜬 뒤 설치되도록
   depends_on = [
     aws_eks_cluster.main,
     aws_eks_fargate_profile.coredns,

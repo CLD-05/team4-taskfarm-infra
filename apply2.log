@@ -1,8 +1,0 @@
-[31m╷[0m[0m
-[31m│[0m [0m[1m[31mError: [0m[0m[1mNo configuration files[0m
-[31m│[0m [0m
-[31m│[0m [0m[0mApply requires configuration to be present. Applying without a
-[31m│[0m [0mconfiguration would mark everything for destruction, which is normally not
-[31m│[0m [0mwhat is desired. If you would like to destroy everything, run 'terraform
-[31m│[0m [0mdestroy' instead.
-[31m╵[0m[0m
