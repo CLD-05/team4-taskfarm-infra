@@ -1,4 +1,4 @@
-#platform-addons/variables.tf
+# platform-addons/variables.tf
 
 variable "env" {
   description = "환경 (dev/prod). remote_state key·태그·addon 분기에 사용"
@@ -18,7 +18,7 @@ variable "chart_versions" {
     metrics_server   = ""       # A 담당
     external_secrets = "2.6.0"  # B 담당
     external_dns     = "1.21.1" # B 담당
-    argocd           = ""       # C 담당
+    argocd           = "8.5.8"  # C 담당
     kube_prometheus  = "61.7.2" # D 담당
     keda             = "2.15.1" # D 담당
   }
@@ -74,7 +74,6 @@ variable "grafana_ingress_enabled" {
   default     = false
 }
 
-# Grafana ingress를 켤 거면 빈값이면 안됨
 variable "grafana_host" {
   description = "Grafana host name"
   type        = string
@@ -86,14 +85,11 @@ variable "grafana_host" {
   }
 }
 
-# prod에서는 tfvars에 반드시 입력 넣어야 함
 variable "grafana_admin_existing_secret" {
   description = "Existing Kubernetes Secret name for Grafana admin credentials"
   type        = string
-  # dev에서는 monitoring을 안쓰니까 secret 값을 넣을 필요 없음
-  default = ""
+  default     = ""
 
-  # prod에는 빈 값이면 안됨
   validation {
     condition     = var.env != "prod" || length(var.grafana_admin_existing_secret) > 0
     error_message = "prod 환경에서는 grafana_admin_existing_secret을 반드시 입력해야 합니다."
