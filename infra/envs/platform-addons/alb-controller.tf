@@ -1,6 +1,14 @@
+# platform-addons/alb-controller.tf
+
 locals {
-  use_pod_identity = var.env == "prod" # prod=Pod Identity, dev=IRSA
-  oidc_url         = replace(data.terraform_remote_state.infra.outputs.oidc_provider_url, "https://", "")
+  # [참고] use_pod_identity = (var.env == "prod")는 env 하드코딩이지만,
+  #   이건 분기 정책이 아니라 인프라 사실에 따른 것이라 그대로 둠:
+  #   dev=Fargate는 Pod Identity Agent(DaemonSet/privileged) 미지원 → IRSA만 가능,
+  #   prod=노드그룹은 Pod Identity 사용. 따라서 env와 1:1로 묶이는 게 맞음.
+  #   (monitoring처럼 "켤지 말지"의 선택이 아니라, 어떤 인증 방식이 가능한지의 문제)
+  use_pod_identity = var.env == "prod"
+
+  oidc_url = replace(data.terraform_remote_state.infra.outputs.oidc_provider_url, "https://", "")
 
   trust_irsa = jsonencode({
     Version = "2012-10-17"

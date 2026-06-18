@@ -1,3 +1,5 @@
+# platform-addons\providers.tf
+
 locals {
   cluster_name     = data.terraform_remote_state.infra.outputs.cluster_name
   cluster_endpoint = data.terraform_remote_state.infra.outputs.cluster_endpoint
