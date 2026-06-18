@@ -34,9 +34,10 @@ locals {
 }
 
 resource "aws_iam_role" "alb_controller" {
-  name               = "team4-${var.env}-alb-controller"
-  assume_role_policy = local.use_pod_identity ? local.trust_pod_identity : local.trust_irsa
-  tags               = { Name = "team4-${var.env}-alb-controller" }
+  name                 = "team4-${var.env}-alb-controller"
+  permissions_boundary = var.permissions_boundary_arn
+  assume_role_policy   = local.use_pod_identity ? local.trust_pod_identity : local.trust_irsa
+  tags                 = { Name = "team4-${var.env}-alb-controller" }
 }
 
 resource "aws_iam_policy" "alb_controller" {

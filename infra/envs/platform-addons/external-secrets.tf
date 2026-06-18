@@ -9,7 +9,8 @@ locals {
 }
 
 resource "aws_iam_role" "external_secrets" {
-  name = "${local.name_prefix}-external-secrets"
+  name                 = "${local.name_prefix}-external-secrets"
+  permissions_boundary = var.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

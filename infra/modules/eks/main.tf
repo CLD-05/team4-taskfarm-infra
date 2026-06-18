@@ -203,15 +203,33 @@ resource "aws_eks_fargate_profile" "coredns" {
 
   selector {
     namespace = "kube-system"
-    labels = {
-      "k8s-app" = "kube-dns"
-    }
   }
 
   depends_on = [aws_eks_cluster.main]
 
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-coredns-fargate-profile"
+  })
+}
+
+resource "aws_eks_fargate_profile" "addons" {
+  count = local.enabled_fargate_profile ? 1 : 0
+
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.name_prefix}-addons-fargate-profile"
+  pod_execution_role_arn = local.fargate_role_arn
+  subnet_ids             = var.private_subnet_ids
+
+  # addon namespace들 (각각 selector)
+  selector { namespace = "external-secrets" } # ESO
+  selector { namespace = "keda" }             # KEDA
+  selector { namespace = "argocd" }           # ArgoCD
+  selector { namespace = "monitoring" }       # (나중) Prometheus/Grafana
+
+  depends_on = [aws_eks_cluster.main]
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-addons-fargate-profile"
   })
 }
 

@@ -18,7 +18,8 @@ locals {
 resource "aws_iam_role" "external_dns" {
   count = local.external_dns_enabled ? 1 : 0
 
-  name = "${local.name_prefix}-external-dns"
+  name                 = "${local.name_prefix}-external-dns"
+  permissions_boundary = var.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

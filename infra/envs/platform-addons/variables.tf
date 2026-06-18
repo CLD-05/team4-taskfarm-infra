@@ -143,3 +143,8 @@ variable "enable_external_dns" {
   type        = bool
   default     = null
 }
+
+variable "permissions_boundary_arn" {
+  description = "IAM role에 부착할 권한경계 ARN (계정 정책상 필수)"
+  type        = string
+}
