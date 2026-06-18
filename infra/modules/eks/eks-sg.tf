@@ -57,6 +57,18 @@ resource "aws_security_group" "node" {
   })
 }
 
+# 클러스터 API (443) 버그 패치
+resource "aws_security_group_rule" "cluster_ingress_node_https" {
+  count                    = local.enabled_node_group ? 1 : 0
+  description              = "Node to cluster API server (kubelet join)"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.node[0].id
+}
+
 locals {
   # main.tf가 참조: cluster SG는 항상, node SG는 prod만(없으면 cluster SG로 폴백)
   cluster_sg_id = aws_security_group.cluster.id
