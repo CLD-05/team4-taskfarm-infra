@@ -125,3 +125,21 @@ variable "grafana_admin_password_key" {
   type        = string
   default     = "admin-password"
 }
+
+variable "enable_monitoring" {
+  description = "kube-prometheus-stack(Prometheus/Grafana) 설치 여부. null이면 prod만 설치"
+  type        = bool
+  default     = null
+}
+
+variable "enable_keda" {
+  description = "KEDA(이벤트 기반 오토스케일러) 설치 여부. AI 워커 스케일용이라 기본 true"
+  type        = bool
+  default     = true
+}
+
+variable "enable_external_dns" {
+  description = "ExternalDNS 설치 여부. route53 zone이 있을 때만 의미. null이면 prod만 설치"
+  type        = bool
+  default     = null
+}

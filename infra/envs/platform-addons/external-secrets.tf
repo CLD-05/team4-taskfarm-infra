@@ -1,3 +1,8 @@
+# platform-addons/external-secrets.tf
+
+# [참고] ESO(External Secrets Operator)는 dev/prod 모두 필요(분기 없음).
+#   dev도 앱이 JWT_SECRET·DB 비밀 등을 Secrets Manager에서 받아야 하므로 항상 설치.
+#   (monitoring과 달리 "끄는" 시나리오가 없어 enable 플래그를 두지 않음)
 locals {
   external_secrets_namespace       = "external-secrets"
   external_secrets_service_account = "external-secrets"

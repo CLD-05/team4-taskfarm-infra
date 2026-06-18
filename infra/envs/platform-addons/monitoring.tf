@@ -1,39 +1,20 @@
-# =====================================================================
-# [담당 D] kube-prometheus-stack + KEDA
-# =====================================================================
-# 역할:
-#   - kube-prometheus-stack: Prometheus + Grafana + Alertmanager (관측)
-#   - KEDA: 이벤트 기반 오토스케일 (Redis 큐 기반 워커 스케일 — 이 앱 AI 추천 워커)
-# 방식: helm_release 2개. KEDA는 IRSA 필요할 수 있음(CloudWatch 등 외부 트리거 시).
-#
-# 구현 체크리스트 — kube-prometheus-stack:
-#  [ ] helm_release "kube-prometheus-stack"
-#      - repository: https://prometheus-community.github.io/helm-charts
-#      - chart: kube-prometheus-stack
-#      - version: var.chart_versions.kube_prometheus (고정!)
-#      - namespace: monitoring (create_namespace=true)
-#      - values: grafana.ingress (ALB) — ⚠️ ALB Controller(A) 먼저
-#      - prometheus 보존기간·스토리지(EBS PV) 설정
-#      - grafana adminPassword — ⚠️ 평문 금지. secret 참조 또는 ESO 연동.
-#
-# 구현 체크리스트 — KEDA:
-#  [ ] helm_release "keda"
-#      - repository: https://kedacore.github.io/charts
-#      - chart: keda
-#      - version: var.chart_versions.keda (고정!)
-#      - namespace: keda (create_namespace=true)
-#  [ ] (앱 레포 or config) ScaledObject — Redis 큐 길이 트리거로 워커 스케일.
-#      ※ ScaledObject 매니페스트는 config 레포에서 관리 권장. 여기선 KEDA 설치까지.
-#
-# ⚠️ Grafana ingress → ALB Controller(A) 의존. depends_on.
-# ⚠️ Prometheus 스토리지: EBS CSI driver 필요 (EKS Add-on 6종 중 하나 — infra/eks에서 설치 확인).
-# ⚠️ adminPassword 등 시크릿 평문 커밋 금지.
-
-# resource "helm_release" "kube_prometheus_stack" { ... }
-# resource "helm_release" "keda" { ... }
+# platform-addons/monitoring.tf
 
 locals {
-  monitoring_enabled = var.env == "prod"
+  # [변경 이유] 기존: monitoring_enabled = var.env == "prod" (env에 하드코딩).
+  #   → dev에 모니터링을 켜고 싶어도 코드를 고쳐야만 했음.
+  #   enable_monitoring 플래그로 분리. null이면 기존처럼 prod만 켜지고(기본 동작 보존),
+  #   dev tfvars에서 enable_monitoring=true를 주면 dev에서도 켤 수 있음.
+  monitoring_enabled = var.enable_monitoring != null ? var.enable_monitoring : (var.env == "prod")
+
+  # [추가 이유] Prometheus 영구 스토리지(EBS PV)는 노드그룹(prod)에서만 가능.
+  #   dev는 Fargate라 EBS 볼륨 마운트가 불가하고 EBS CSI driver도 없음(prod 노드 전용).
+  #   따라서 dev에 모니터링을 켜더라도 EBS PV는 쓸 수 없어, 스토리지 사용 여부를 분리.
+  #   prod=EBS PV(영구), dev=emptyDir(임시, 파드 재시작 시 소실되지만 Fargate에서 동작).
+  monitoring_use_ebs = var.env == "prod"
+
+  # [추가 이유] KEDA는 모니터링과 분리(생명주기 다름). enable_keda 플래그로 제어.
+  keda_enabled = var.enable_keda
 }
 
 resource "helm_release" "kube_prometheus_stack" {
@@ -43,24 +24,21 @@ resource "helm_release" "kube_prometheus_stack" {
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
   version    = var.chart_versions.kube_prometheus
-  # kube-prometheus-stack을 설치할 namespace
+
   namespace        = "monitoring"
   create_namespace = true
 
   values = [
     yamlencode({
-      # Grafana 활성화
       grafana = {
         enabled = true
 
-        # Grafana admin 계정 정보를 Kubernetes Secret에서 가져오도록 설정
         admin = {
           existingSecret = var.grafana_admin_existing_secret
           userKey        = var.grafana_admin_user_key
           passwordKey    = var.grafana_admin_password_key
         }
 
-        # Grafana를 외부에서 접속할 수 있게 ingress 설정
         ingress = {
           enabled          = var.grafana_ingress_enabled
           ingressClassName = "alb"
@@ -73,9 +51,8 @@ resource "helm_release" "kube_prometheus_stack" {
                 HTTP = 80
               }
             ])
-          } : {} # grafana_ingress_enabled가 false면 annotation을 비워둔다.
+          } : {}
 
-          # Grafana Ingress에 사용할 host를 설정하는 부분
           hosts = var.grafana_ingress_enabled ? [
             var.grafana_host
           ] : []
@@ -83,35 +60,48 @@ resource "helm_release" "kube_prometheus_stack" {
       }
 
       prometheus = {
-        prometheusSpec = {
-          retention = var.prometheus_retention
-
-          # 프로메테우스 데이터를 영구 저장소에 저장하기 위한 설정
-          storageSpec = {
-            volumeClaimTemplate = {
-              spec = {
-                storageClassName = var.prometheus_storage_class_name
-                accessModes      = ["ReadWriteOnce"]
-
-                resources = {
-                  requests = {
-                    storage = var.prometheus_storage_size
+        prometheusSpec = merge(
+          {
+            retention = var.prometheus_retention
+          },
+          # [변경 이유] 기존: storageSpec(EBS PV)를 무조건 설정 →
+          #   dev(Fargate)에 모니터링을 켜면 EBS 마운트 불가로 Prometheus 파드가
+          #   Pending에 빠져 뜨지 않음. EBS를 쓸 수 있는 prod에서만 storageSpec을 주고,
+          #   dev는 storageSpec을 비워 emptyDir(차트 기본)로 동작하게 분기.
+          local.monitoring_use_ebs ? {
+            storageSpec = {
+              volumeClaimTemplate = {
+                spec = {
+                  storageClassName = var.prometheus_storage_class_name
+                  accessModes      = ["ReadWriteOnce"]
+                  resources = {
+                    requests = {
+                      storage = var.prometheus_storage_size
+                    }
                   }
                 }
               }
             }
-          }
-        }
+          } : {}
+        )
       }
     })
   ]
 
+  # [참고] depends_on은 정적이어야 해서 조건부로 만들 수 없음.
+  #   Grafana ingress(ALB) 사용 시 ALB Controller가 먼저 있어야 하므로 의존을 유지.
+  #   ingress를 끈 환경에서도 이 의존이 해는 없음(ALB Controller는 dev/prod 모두 설치되므로).
+  #   단 alb_controller가 설치되지 않는 환경이 생기면 이 의존을 재검토할 것.
   depends_on = [helm_release.alb_controller]
 }
 
 resource "helm_release" "keda" {
-  count = local.monitoring_enabled ? 1 : 0
-  # Keda 설치
+  # [변경 이유] 기존: count = local.monitoring_enabled (모니터링과 한 묶음).
+  #   KEDA는 관측(Prometheus/Grafana)이 아니라 이벤트 기반 오토스케일러로,
+  #   AI 워커(Redis 큐)를 dev/prod 모두 스케일해야 하므로 모니터링과 생명주기가 다름.
+  #   enable_keda로 분리해 모니터링과 독립적으로 켜고 끌 수 있게 함.
+  count = local.keda_enabled ? 1 : 0
+
   name             = "keda"
   repository       = "https://kedacore.github.io/charts"
   chart            = "keda"

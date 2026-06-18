@@ -1,3 +1,5 @@
+# platform-addons\versions.tf
+
 terraform {
   required_version = "~> 1.15.0"
 
