@@ -24,7 +24,7 @@ resource "aws_kms_alias" "secrets" {
 resource "aws_secretsmanager_secret" "this" {
   for_each = toset(var.secret_names)
 
-  name                    = "/${local.secret_base_path}/${var.env}/${each.value}"
+  name                    = "${local.secret_base_path}/${var.env}/${each.value}"
   description             = "Secret for ${local.resource_prefix} ${each.value}"
   kms_key_id              = aws_kms_key.secrets.arn
   recovery_window_in_days = var.env == "dev" ? 0 : var.recovery_window_in_days

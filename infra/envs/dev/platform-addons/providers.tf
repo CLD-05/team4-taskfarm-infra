@@ -10,7 +10,6 @@ provider "aws" {
   default_tags {
     tags = {
       Team  = "team4"
-      team  = "team4"
       env   = "dev"
       layer = "platform-addons"
     }
