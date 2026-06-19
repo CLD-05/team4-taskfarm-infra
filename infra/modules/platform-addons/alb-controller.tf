@@ -8,13 +8,13 @@ locals {
   #   (monitoring처럼 "켤지 말지"의 선택이 아니라, 어떤 인증 방식이 가능한지의 문제)
   use_pod_identity = var.env == "prod"
 
-  oidc_url = replace(data.terraform_remote_state.infra.outputs.oidc_provider_url, "https://", "")
+  oidc_url = replace(var.oidc_provider_url, "https://", "")
 
   trust_irsa = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Federated = data.terraform_remote_state.infra.outputs.oidc_provider_arn }
+      Principal = { Federated = var.oidc_provider_arn }
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = { StringEquals = {
         "${local.oidc_url}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
@@ -53,7 +53,7 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
 resource "aws_eks_pod_identity_association" "alb_controller" {
   count = local.use_pod_identity ? 1 : 0
 
-  cluster_name    = local.cluster_name
+  cluster_name    = var.cluster_name
   namespace       = "kube-system"
   service_account = "aws-load-balancer-controller"
   role_arn        = aws_iam_role.alb_controller.arn
@@ -86,7 +86,7 @@ resource "helm_release" "alb_controller" {
 
   set {
     name  = "clusterName"
-    value = local.cluster_name
+    value = var.cluster_name
   }
   set {
     name  = "region"
@@ -94,7 +94,7 @@ resource "helm_release" "alb_controller" {
   }
   set {
     name  = "vpcId"
-    value = data.terraform_remote_state.infra.outputs.vpc_id
+    value = var.vpc_id
   }
 
   depends_on = [aws_iam_role_policy_attachment.alb_controller]

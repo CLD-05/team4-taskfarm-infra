@@ -1,5 +1,4 @@
-# platform-addons\providers.tf
-
+# envs/prod/platform-addons/providers.tf
 locals {
   cluster_name     = data.terraform_remote_state.infra.outputs.cluster_name
   cluster_endpoint = data.terraform_remote_state.infra.outputs.cluster_endpoint
@@ -8,11 +7,11 @@ locals {
 
 provider "aws" {
   region = "ap-northeast-2"
-
   default_tags {
     tags = {
+      Team  = "team4"
       team  = "team4"
-      env   = var.env
+      env   = "prod"
       layer = "platform-addons"
     }
   }
@@ -21,7 +20,6 @@ provider "aws" {
 provider "kubernetes" {
   host                   = local.cluster_endpoint
   cluster_ca_certificate = base64decode(local.cluster_ca)
-
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
@@ -33,7 +31,6 @@ provider "helm" {
   kubernetes {
     host                   = local.cluster_endpoint
     cluster_ca_certificate = base64decode(local.cluster_ca)
-
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"

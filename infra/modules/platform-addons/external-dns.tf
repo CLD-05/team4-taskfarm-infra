@@ -92,7 +92,7 @@ resource "helm_release" "external_dns" {
       }
       policy        = local.external_dns_policy
       domainFilters = var.external_dns_domain_filters
-      txtOwnerId    = local.cluster_name
+      txtOwnerId    = var.cluster_name
 
       serviceAccount = {
         create = true

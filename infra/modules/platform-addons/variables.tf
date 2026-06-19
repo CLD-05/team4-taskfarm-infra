@@ -58,10 +58,10 @@ variable "external_dns_domain_filters" {
 
 locals {
   name_prefix       = "team4-${var.env}"
-  oidc_provider_arn = data.terraform_remote_state.infra.outputs.oidc_provider_arn
+  oidc_provider_arn = var.oidc_provider_arn
   oidc_provider_url = trimprefix(
     try(
-      data.terraform_remote_state.infra.outputs.oidc_provider_url,
+      var.oidc_provider_url,
       trimprefix(local.oidc_provider_arn, "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/")
     ),
     "https://"
