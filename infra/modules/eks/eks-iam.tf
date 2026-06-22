@@ -91,6 +91,37 @@ resource "aws_iam_role_policy_attachment" "fargate_exec" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy"
 }
 
+resource "aws_iam_policy" "fargate_cloudwatch_logs" {
+  count = local.enabled_fargate_profile ? 1 : 0
+
+  name = "${var.name_prefix}-fargate-cloudwatch-logs-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents"
+      ]
+      Resource = "*"
+    }]
+  })
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-fargate-cloudwatch-logs-policy"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "fargate_cloudwatch_logs" {
+  count = local.enabled_fargate_profile ? 1 : 0
+
+  role       = aws_iam_role.fargate[0].name
+  policy_arn = aws_iam_policy.fargate_cloudwatch_logs[0].arn
+}
+
 # ── EBS CSI Driver IRSA Role (node_group = prod만) ──
 # EBS CSI는 EKS managed addon → Pod Identity 미지원, IRSA만 가능.
 # 이 addon을 eks-addons.tf가 설치하므로 그 role도 여기서(같은 모듈) 생성 — 응집도.
