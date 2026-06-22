@@ -77,3 +77,17 @@ variable "rds_master_password" {
   type      = string
   sensitive = true
 }
+
+variable "endpoint_public_access" {
+  type = bool
+}
+
+variable "endpoint_private_access" {
+  type    = bool
+  default = true
+}
+
+variable "public_access_cidrs" {
+  type    = list(string)
+  default = []
+}

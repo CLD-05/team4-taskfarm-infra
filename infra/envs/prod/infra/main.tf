@@ -28,9 +28,9 @@ module "eks" {
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
 
-  endpoint_public_access  = false
-  endpoint_private_access = true
-  public_access_cidrs     = []
+  endpoint_public_access  = var.endpoint_public_access
+  endpoint_private_access = var.endpoint_private_access
+  public_access_cidrs     = var.public_access_cidrs
 
   node_group_instance_types = var.node_group_instance_types
   node_group_desired_size   = var.node_group_desired_size
