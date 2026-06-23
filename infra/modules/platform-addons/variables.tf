@@ -148,3 +148,8 @@ variable "permissions_boundary_arn" {
   description = "IAM role에 부착할 권한경계 ARN (계정 정책상 필수)"
   type        = string
 }
+
+variable "secrets_kms_key_arn" {
+  description = "Secrets Manager 암호화 KMS 키 ARN. ESO kms:Decrypt 허용 대상."
+  type        = string
+}

@@ -40,14 +40,24 @@ resource "aws_iam_role_policy" "external_secrets" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:DescribeSecret"
-      ]
-      Resource = var.external_secrets_secret_arns
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = var.external_secrets_secret_arns
+      },
+      {
+        # [KMS-FIX] KMS로 암호화된 secret 복호화 권한
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = var.secrets_kms_key_arn
+      }
+    ]
   })
 }
 

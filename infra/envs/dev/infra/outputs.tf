@@ -50,3 +50,8 @@ output "rds_primary_endpoint" {
   description = "RDS primary endpoint (앱 DB)."
   value       = module.rds.primary_endpoint
 }
+
+output "secrets_kms_key_arn" {
+  description = "Secrets Manager 암호화 KMS 키 ARN (ESO kms:Decrypt 정책용)."
+  value       = module.secrets.kms_key_arn
+}
