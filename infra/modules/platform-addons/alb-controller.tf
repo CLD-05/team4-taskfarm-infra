@@ -66,6 +66,11 @@ resource "helm_release" "alb_controller" {
   version    = var.chart_versions.alb_controller
   namespace  = "kube-system"
 
+  # [WEBHOOK-FIX] Pod가 Ready 될 때까지 helm이 대기 → webhook endpoint 보장
+  wait          = true
+  wait_for_jobs = true
+  timeout       = 600 # Fargate Pod 기동 여유 (초)
+
   set {
     name  = "serviceAccount.create"
     value = "true"

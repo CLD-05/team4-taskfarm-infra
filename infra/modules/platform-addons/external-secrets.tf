@@ -71,5 +71,9 @@ resource "helm_release" "external_secrets" {
     })
   ]
 
-  depends_on = [aws_iam_role_policy.external_secrets]
+  # [WEBHOOK-FIX] ALB Controller가 Ready 된 뒤 설치 (webhook 호출 실패 방지)
+  depends_on = [
+    aws_iam_role_policy.external_secrets,
+    helm_release.alb_controller,
+  ]
 }
