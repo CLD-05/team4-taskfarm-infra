@@ -88,6 +88,10 @@ resource "helm_release" "kube_prometheus_stack" {
     })
   ]
 
+  # [TIMEOUT-FIX] Fargate 기동 여유 (기본 300초 → 900초)
+  timeout = 900
+  wait    = true
+
   # [참고] depends_on은 정적이어야 해서 조건부로 만들 수 없음.
   #   Grafana ingress(ALB) 사용 시 ALB Controller가 먼저 있어야 하므로 의존을 유지.
   #   ingress를 끈 환경에서도 이 의존이 해는 없음(ALB Controller는 dev/prod 모두 설치되므로).
