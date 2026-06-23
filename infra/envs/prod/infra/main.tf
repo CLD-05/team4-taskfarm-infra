@@ -118,7 +118,13 @@ module "secrets" {
   name_prefix      = local.name_prefix
   env              = local.env
   secret_base_path = "team4/taskfarm"
-  secret_names     = ["gemini-api-key", "grafana-admin"]
+
+  secret_names = [
+    "db",             # JSON: { "username": "...", "password": "..." }
+    "jwt-secret",     # 평문 문자열
+    "gemini-api-key", # 평문 문자열
+    "grafana-admin",  # JSON: { "admin-user": "...", "admin-password": "..." }
+  ]
 }
 
 # route53: prod가 zone 소유 (create_zone=true).

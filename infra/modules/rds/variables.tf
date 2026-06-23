@@ -159,3 +159,9 @@ variable "master_password" {
   default     = null
   sensitive   = true
 }
+
+variable "read_replica_deletion_protection" {
+  description = "Read replica deletion protection. 기본 false — destroy/비용정리 시 reader를 먼저 떼어내기 위해 primary와 분리. prod에서 보호가 필요하면 true."
+  type        = bool
+  default     = false
+}

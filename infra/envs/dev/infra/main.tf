@@ -110,7 +110,13 @@ module "secrets" {
   name_prefix      = local.name_prefix
   env              = local.env
   secret_base_path = "team4/taskfarm"
-  secret_names     = ["gemini-api-key"]
+
+  # db, jwt-secret 추가 (gemini-api-key는 기존 유지)
+  secret_names = [
+    "db",             # JSON: { "username": "...", "password": "..." }
+    "jwt-secret",     # 평문 문자열 (property 없음)
+    "gemini-api-key", # 평문 문자열
+  ]
 }
 
 

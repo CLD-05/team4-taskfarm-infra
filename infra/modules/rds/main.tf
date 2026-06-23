@@ -130,13 +130,28 @@ resource "aws_db_instance" "read_replica" {
   publicly_accessible    = false
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  # replica는 자체 백업 불필요(소스에서 복제) — 0이 맞습니다.
+  # [D-FIX 1] 소스와 동일하게 암호화 상태를 명시 → 매 apply 강제 replace 방지
+  storage_encrypted = true
+  kms_key_id        = aws_kms_key.rds.arn
+
+  # replica는 자체 백업 불필요(소스에서 복제)
   backup_retention_period = 0
-  deletion_protection     = var.deletion_protection
-  skip_final_snapshot     = true
+
+  # [D-FIX 2] reader 전용 deletion_protection (기본 false → destroy 용이)
+  deletion_protection = var.read_replica_deletion_protection
+
+  skip_final_snapshot = true
 
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   apply_immediately          = var.apply_immediately
+
+  # [D-FIX 1] KMS/암호화 필드가 plan에서 흔들려도 교체로 번지지 않도록 방어
+  lifecycle {
+    ignore_changes = [
+      kms_key_id,
+      storage_encrypted,
+    ]
+  }
 
   tags = merge(var.tags, {
     Name = "${local.resource_prefix}-mysql-reader"
