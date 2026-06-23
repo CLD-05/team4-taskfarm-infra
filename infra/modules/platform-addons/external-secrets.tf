@@ -59,6 +59,21 @@ resource "helm_release" "external_secrets" {
   namespace        = local.external_secrets_namespace
   create_namespace = true
 
+  # 차트가 CRD(v1 포함)를 설치/관리
+  set {
+    name  = "installCRDs"
+    value = "true"
+  }
+
+  # [FARGATE-FIX] webhook 포트를 9443으로 — Fargate kubelet(10250)과 충돌 회피
+  set {
+    name  = "webhook.port"
+    value = "9443"
+  }
+
+  wait    = true
+  timeout = 600
+
   values = [
     yamlencode({
       serviceAccount = {
@@ -71,7 +86,6 @@ resource "helm_release" "external_secrets" {
     })
   ]
 
-  # [WEBHOOK-FIX] ALB Controller가 Ready 된 뒤 설치 (webhook 호출 실패 방지)
   depends_on = [
     aws_iam_role_policy.external_secrets,
     helm_release.alb_controller,
