@@ -47,10 +47,11 @@ resource "helm_release" "kube_prometheus_stack" {
             "alb.ingress.kubernetes.io/scheme"      = "internet-facing"
             "alb.ingress.kubernetes.io/target-type" = "ip"
             "alb.ingress.kubernetes.io/listen-ports" = jsonencode([
-              {
-                HTTP = 80
-              }
+              { HTTP = 80 },
+              { HTTPS = 443 }
             ])
+            "alb.ingress.kubernetes.io/ssl-redirect"    = "443"
+            "alb.ingress.kubernetes.io/certificate-arn" = "arn:aws:acm:ap-northeast-2:194722398200:certificate/7088d446-8124-4476-9b87-e88b978a3924"
           } : {}
 
           hosts = var.grafana_ingress_enabled ? [

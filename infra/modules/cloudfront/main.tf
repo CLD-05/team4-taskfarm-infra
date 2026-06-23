@@ -10,6 +10,7 @@ locals {
 
 # S3 비공개 접근용 OAC (Origin Access Control — OAI 후속 권장 방식)
 resource "aws_cloudfront_origin_access_control" "s3" {
+  provider                          = aws.us_east_1
   name                              = "${var.name_prefix}-s3-oac"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -17,6 +18,7 @@ resource "aws_cloudfront_origin_access_control" "s3" {
 }
 
 resource "aws_cloudfront_distribution" "this" {
+  provider            = aws.us_east_1
   enabled             = true
   default_root_object = "index.html"
   aliases             = var.aliases

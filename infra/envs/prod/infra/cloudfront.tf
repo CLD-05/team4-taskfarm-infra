@@ -9,7 +9,6 @@ provider "aws" {
   default_tags {
     tags = {
       Team = "team4"
-      team = "team4"
       env  = "prod"
     }
   }
@@ -20,7 +19,7 @@ module "acm_cloudfront" {
   source = "../../../modules/acm"
 
   providers = {
-    aws = aws.us_east_1   # ← CloudFront ACM은 us-east-1
+    aws = aws.us_east_1 # ← CloudFront ACM은 us-east-1
   }
 
   name_prefix               = "${local.name_prefix}-cloudfront"
