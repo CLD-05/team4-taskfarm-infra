@@ -219,3 +219,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform,intellij+all,visualstudiocode,macos,windows,linux
+falco-values.yaml
