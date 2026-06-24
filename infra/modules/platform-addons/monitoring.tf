@@ -20,7 +20,6 @@ locals {
 resource "helm_release" "kube_prometheus_stack" {
   count = local.monitoring_enabled ? 1 : 0
 
-  depends_on = [kubernetes_storage_class.gp3]
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
@@ -98,7 +97,7 @@ resource "helm_release" "kube_prometheus_stack" {
   #   Grafana ingress(ALB) 사용 시 ALB Controller가 먼저 있어야 하므로 의존을 유지.
   #   ingress를 끈 환경에서도 이 의존이 해는 없음(ALB Controller는 dev/prod 모두 설치되므로).
   #   단 alb_controller가 설치되지 않는 환경이 생기면 이 의존을 재검토할 것.
-  depends_on = [helm_release.alb_controller]
+  depends_on = [helm_release.alb_controller, kubernetes_storage_class.gp3]
 }
 
 resource "helm_release" "keda" {
