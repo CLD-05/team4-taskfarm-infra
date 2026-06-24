@@ -59,6 +59,45 @@ resource "helm_release" "kube_prometheus_stack" {
         }
       }
 
+      alertmanager = {
+        enabled = true
+
+        alertmanagerSpec = {
+          secrets = [
+            var.alertmanager_slack_secret_name
+          ]
+        }
+
+        config = {
+          global = {
+            resolve_timeout = "5m"
+          }
+
+          route = {
+            receiver        = "slack"
+            group_by        = ["alertname", "namespace", "severity"]
+            group_wait      = "30s"
+            group_interval  = "5m"
+            repeat_interval = "2h"
+          }
+
+          receivers = [
+            {
+              name = "slack"
+              slack_configs = [
+                {
+                  api_url_file  = "/etc/alertmanager/secrets/${var.alertmanager_slack_secret_name}/${var.alertmanager_slack_webhook_key}"
+                  channel       = var.alertmanager_slack_channel
+                  send_resolved = true
+                  title         = "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+                  text          = "{{ range .Alerts }}*Severity:* {{ .Labels.severity }}\n*Summary:* {{ .Annotations.summary }}\n*Description:* {{ .Annotations.description }}\n{{ end }}"
+                }
+              ]
+            }
+          ]
+        }
+      }
+
       prometheus = {
         prometheusSpec = merge(
           {

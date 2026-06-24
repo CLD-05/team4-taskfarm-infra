@@ -14,9 +14,10 @@ module "platform_addons" {
   permissions_boundary_arn     = var.permissions_boundary_arn
 
   # prod: monitoring/external-dns 필수값
-  route53_hosted_zone_id      = var.route53_hosted_zone_id
-  external_dns_domain_filters = var.external_dns_domain_filters
-  grafana_ingress_enabled     = var.grafana_ingress_enabled
-  grafana_host                = var.grafana_host
+  route53_hosted_zone_id        = var.route53_hosted_zone_id
+  external_dns_domain_filters   = var.external_dns_domain_filters
+  grafana_ingress_enabled       = var.grafana_ingress_enabled
+  grafana_host                  = var.grafana_host
   grafana_admin_existing_secret = var.grafana_admin_existing_secret
+  alertmanager_slack_channel    = var.alertmanager_slack_channel
 }

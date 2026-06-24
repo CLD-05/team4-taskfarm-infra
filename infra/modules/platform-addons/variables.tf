@@ -126,6 +126,24 @@ variable "grafana_admin_password_key" {
   default     = "admin-password"
 }
 
+variable "alertmanager_slack_secret_name" {
+  description = "Kubernetes Secret name that stores the Alertmanager Slack webhook URL."
+  type        = string
+  default     = "alertmanager-slack"
+}
+
+variable "alertmanager_slack_webhook_key" {
+  description = "Secret data key that stores the Alertmanager Slack webhook URL."
+  type        = string
+  default     = "slack-webhook-url"
+}
+
+variable "alertmanager_slack_channel" {
+  description = "Slack channel for Alertmanager notifications."
+  type        = string
+  default     = "#taskfarm-alerts"
+}
+
 variable "enable_monitoring" {
   description = "kube-prometheus-stack(Prometheus/Grafana) 설치 여부. null이면 prod만 설치"
   type        = bool
