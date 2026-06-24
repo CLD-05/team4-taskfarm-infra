@@ -20,4 +20,5 @@ module "platform_addons" {
   grafana_ingress_enabled       = var.grafana_ingress_enabled
   grafana_host                  = var.grafana_host
   grafana_admin_existing_secret = var.grafana_admin_existing_secret
+  alertmanager_slack_channel    = var.alertmanager_slack_channel
 }

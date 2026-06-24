@@ -37,3 +37,8 @@ variable "grafana_admin_existing_secret" {
   type    = string
   default = ""
 }
+
+variable "alertmanager_slack_channel" {
+  type    = string
+  default = "#taskfarm-alerts"
+}

@@ -120,10 +120,11 @@ module "secrets" {
   secret_base_path = "team4/taskfarm"
 
   secret_names = [
-    "db",             # JSON: { "username": "...", "password": "..." }
-    "jwt-secret",     # 평문 문자열
-    "gemini-api-key", # 평문 문자열
-    "grafana-admin",  # JSON: { "admin-user": "...", "admin-password": "..." }
+    "db",                 # JSON: { "username": "...", "password": "..." }
+    "jwt-secret",         # 평문 문자열
+    "gemini-api-key",     # 평문 문자열
+    "grafana-admin",      # JSON: { "admin-user": "...", "admin-password": "..." }
+    "alertmanager-slack", # JSON: { "webhook-url": "https://hooks.slack.com/services/..." }
   ]
 }
 
