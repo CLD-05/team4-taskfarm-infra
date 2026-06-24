@@ -20,6 +20,7 @@ locals {
 resource "helm_release" "kube_prometheus_stack" {
   count = local.monitoring_enabled ? 1 : 0
 
+  depends_on = [kubernetes_storage_class.gp3]
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
