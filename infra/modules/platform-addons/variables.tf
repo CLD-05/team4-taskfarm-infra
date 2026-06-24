@@ -21,6 +21,7 @@ variable "chart_versions" {
     argocd           = "8.5.8"  # C 담당
     kube_prometheus  = "61.7.2" # D 담당
     keda             = "2.15.1" # D 담당
+    falco            = "9.1.0"
   }
 }
 
