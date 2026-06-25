@@ -84,6 +84,9 @@ resource "helm_release" "kube_prometheus_stack" {
 
           receivers = [
             {
+              name = "null"
+            },
+            {
               name = "slack"
               slack_configs = [
                 {
