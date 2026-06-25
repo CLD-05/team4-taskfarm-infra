@@ -1,3 +1,15 @@
+# =============================================================================
+# Terraform Plan and Apply
+#
+# [운영 메모]
+# - 이 워크플로우는 infra(VPC/EKS/RDS 등 기반)만 CI/CD로 관리한다.
+#   platform-addons(ALB Controller/ArgoCD/ESO/모니터링)는 helm/kubectl 기반이라
+#   클러스터 상태에 민감하고 설치 순서(webhook race 등) 이슈가 있어,
+#   의도적으로 수동(terraform apply)으로 운영한다.
+# - apply job은 plan을 다시 실행해 적용한다. 더 엄격히 하려면 plan job의 tfplan을
+#   artifact로 넘겨 동일 plan을 apply해야 하나(plan=apply 보장), 현 규모에선
+#   현재 방식으로 충분하다고 판단. (향후 개선 TODO)
+# =============================================================================
 name: Terraform Plan and Apply
 
 on:
@@ -99,6 +111,7 @@ jobs:
 
       - name: Terraform plan
         run: |
+          set -o pipefail
           terraform plan \
             -no-color \
             -input=false \
@@ -112,11 +125,16 @@ jobs:
           MASKED_PLAN="$RUNNER_TEMP/plan-masked.txt"
           cp plan.txt "$MASKED_PLAN"
 
+          # tfvars의 각 값을 plan.txt에서 마스킹.
+          # - sed 구분자/정규식 특수문자가 값에 있어도 깨지지 않도록 이스케이프
+          # - 너무 짧은 값(2글자 이하: "1","dev" 등)은 plan 전반을 오염시키므로 스킵
           grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
             clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
 
-            if [ -n "$clean_value" ]; then
-              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            if [ -n "$clean_value" ] && [ "${#clean_value}" -gt 2 ]; then
+              # sed에서 안전하도록 정규식 메타문자/구분자(|) 이스케이프
+              escaped_value=$(printf '%s' "$clean_value" | sed -e 's/[][\/.*^$|]/\\&/g')
+              sed -i "s|$escaped_value|***MASKED***|g" "$MASKED_PLAN" || true
             fi
           done
 
@@ -197,6 +215,7 @@ jobs:
 
       - name: Terraform plan dev
         run: |
+          set -o pipefail
           terraform plan \
             -no-color \
             -input=false \
@@ -213,17 +232,21 @@ jobs:
           grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
             clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
 
-            if [ -n "$clean_value" ]; then
-              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            if [ -n "$clean_value" ] && [ "${#clean_value}" -gt 2 ]; then
+              escaped_value=$(printf '%s' "$clean_value" | sed -e 's/[][\/.*^$|]/\\&/g')
+              sed -i "s|$escaped_value|***MASKED***|g" "$MASKED_PLAN" || true
             fi
           done
 
           mv "$MASKED_PLAN" plan.txt
 
+      # destroy 차단: 단순 "destroy" 문자열이 아니라 plan 요약의 destroy 카운트로 판정
+      # (리소스 설명/변수명에 'destroy'가 들어가도 오탐하지 않도록)
       - name: Block destructive changes on dev auto apply
         run: |
-          if grep -q "destroy" plan.txt; then
-            echo "Destructive changes detected. Auto apply is blocked."
+          if grep -qE "^Plan:.*[1-9][0-9]* to destroy" plan.txt; then
+            echo "Destructive changes detected (Plan shows resources to destroy). Auto apply is blocked."
+            grep -E "^Plan:" plan.txt || true
             exit 1
           fi
 
@@ -274,6 +297,7 @@ jobs:
 
       - name: Terraform plan prod
         run: |
+          set -o pipefail
           terraform plan \
             -no-color \
             -input=false \
@@ -290,8 +314,9 @@ jobs:
           grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
             clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
 
-            if [ -n "$clean_value" ]; then
-              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            if [ -n "$clean_value" ] && [ "${#clean_value}" -gt 2 ]; then
+              escaped_value=$(printf '%s' "$clean_value" | sed -e 's/[][\/.*^$|]/\\&/g')
+              sed -i "s|$escaped_value|***MASKED***|g" "$MASKED_PLAN" || true
             fi
           done
 
@@ -300,8 +325,9 @@ jobs:
       - name: Block destructive changes unless allowed
         if: github.event.inputs.allow_destroy != 'true'
         run: |
-          if grep -q "destroy" plan.txt; then
-            echo "Destructive changes detected. Set allow_destroy=true to proceed."
+          if grep -qE "^Plan:.*[1-9][0-9]* to destroy" plan.txt; then
+            echo "Destructive changes detected (Plan shows resources to destroy). Set allow_destroy=true to proceed."
+            grep -E "^Plan:" plan.txt || true
             exit 1
           fi
 
