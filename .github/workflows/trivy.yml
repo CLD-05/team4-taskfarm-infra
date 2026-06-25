@@ -13,13 +13,14 @@ jobs:
   trivy:
     name: Trivy Terraform Scan
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # v4.2.2 - SHA 핀 고정
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@0.24.0
+        # v0.36.0 - SHA 핀 고정 (태그 hijacking 방어)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: "config"
           scan-ref: "."
