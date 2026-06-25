@@ -1,0 +1,314 @@
+name: Terraform Plan and Apply
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "prod"
+        type: choice
+        options:
+          - dev
+          - prod
+      apply:
+        description: "Run terraform apply?"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      allow_destroy:
+        description: "Allow destroy changes?"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  TF_VERSION: 1.15.6
+
+jobs:
+  plan:
+    name: Terraform Plan (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - environment: dev
+            working_directory: infra/envs/dev/infra
+            tfvars_secret: DEV_TFVARS
+          - environment: prod
+            working_directory: infra/envs/prod/infra
+            tfvars_secret: PROD_TFVARS
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.working_directory }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Write terraform.tfvars to runner temp
+        env:
+          TFVARS_CONTENT: ${{ secrets[matrix.tfvars_secret] }}
+        run: |
+          TFVARS_FILE="$RUNNER_TEMP/${{ matrix.environment }}.tfvars"
+          printf '%s\n' "$TFVARS_CONTENT" > "$TFVARS_FILE"
+          chmod 600 "$TFVARS_FILE"
+          echo "TFVARS_FILE=$TFVARS_FILE" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        run: |
+          terraform plan \
+            -no-color \
+            -input=false \
+            -var-file="$TFVARS_FILE" \
+            -out=tfplan
+
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Mask sensitive values in plan
+        run: |
+          MASKED_PLAN="$RUNNER_TEMP/plan-masked.txt"
+          cp plan.txt "$MASKED_PLAN"
+
+          grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
+            clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
+
+            if [ -n "$clean_value" ]; then
+              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            fi
+          done
+
+          mv "$MASKED_PLAN" plan.txt
+
+      - name: Create plan summary
+        run: |
+          {
+            echo "## Terraform Plan - ${{ matrix.environment }}"
+            echo
+            grep -E "^(Plan:|No changes\.)" plan.txt || echo "Plan completed. See workflow artifact for details."
+            echo
+            echo "Full masked plan output is uploaded as an artifact."
+          } > plan-summary.md
+
+      - name: Upload masked plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ matrix.environment }}
+          path: ${{ matrix.working_directory }}/plan.txt
+
+      - name: Comment plan summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('${{ matrix.working_directory }}/plan-summary.md', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Cleanup tfvars
+        if: always()
+        run: |
+          rm -f "$TFVARS_FILE"
+
+  apply-dev:
+    name: Terraform Apply Dev
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    defaults:
+      run:
+        working-directory: infra/envs/dev/infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Write terraform.tfvars to runner temp
+        env:
+          TFVARS_CONTENT: ${{ secrets.DEV_TFVARS }}
+        run: |
+          TFVARS_FILE="$RUNNER_TEMP/dev.tfvars"
+          printf '%s\n' "$TFVARS_CONTENT" > "$TFVARS_FILE"
+          chmod 600 "$TFVARS_FILE"
+          echo "TFVARS_FILE=$TFVARS_FILE" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform plan dev
+        run: |
+          terraform plan \
+            -no-color \
+            -input=false \
+            -var-file="$TFVARS_FILE" \
+            -out=tfplan
+
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Mask sensitive values in dev plan
+        run: |
+          MASKED_PLAN="$RUNNER_TEMP/plan-masked.txt"
+          cp plan.txt "$MASKED_PLAN"
+
+          grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
+            clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
+
+            if [ -n "$clean_value" ]; then
+              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            fi
+          done
+
+          mv "$MASKED_PLAN" plan.txt
+
+      - name: Block destructive changes on dev auto apply
+        run: |
+          if grep -q "destroy" plan.txt; then
+            echo "Destructive changes detected. Auto apply is blocked."
+            exit 1
+          fi
+
+      - name: Terraform apply dev
+        run: terraform apply -auto-approve -input=false tfplan
+
+      - name: Cleanup tfvars
+        if: always()
+        run: |
+          rm -f "$TFVARS_FILE"
+
+  apply-prod:
+    name: Terraform Apply Prod
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod' && github.event.inputs.apply == 'true'
+    environment: prod
+
+    defaults:
+      run:
+        working-directory: infra/envs/prod/infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Write terraform.tfvars to runner temp
+        env:
+          TFVARS_CONTENT: ${{ secrets.PROD_TFVARS }}
+        run: |
+          TFVARS_FILE="$RUNNER_TEMP/prod.tfvars"
+          printf '%s\n' "$TFVARS_CONTENT" > "$TFVARS_FILE"
+          chmod 600 "$TFVARS_FILE"
+          echo "TFVARS_FILE=$TFVARS_FILE" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform plan prod
+        run: |
+          terraform plan \
+            -no-color \
+            -input=false \
+            -var-file="$TFVARS_FILE" \
+            -out=tfplan
+
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Mask sensitive values in prod plan
+        run: |
+          MASKED_PLAN="$RUNNER_TEMP/plan-masked.txt"
+          cp plan.txt "$MASKED_PLAN"
+
+          grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$TFVARS_FILE" | while IFS='=' read -r key value; do
+            clean_value=$(echo "$value" | sed 's/^ *//; s/ *$//; s/^"//; s/"$//')
+
+            if [ -n "$clean_value" ]; then
+              sed -i "s|$clean_value|***MASKED***|g" "$MASKED_PLAN" || true
+            fi
+          done
+
+          mv "$MASKED_PLAN" plan.txt
+
+      - name: Block destructive changes unless allowed
+        if: github.event.inputs.allow_destroy != 'true'
+        run: |
+          if grep -q "destroy" plan.txt; then
+            echo "Destructive changes detected. Set allow_destroy=true to proceed."
+            exit 1
+          fi
+
+      - name: Terraform apply prod
+        run: terraform apply -auto-approve -input=false tfplan
+
+      - name: Cleanup tfvars
+        if: always()
+        run: |
+          rm -f "$TFVARS_FILE"
