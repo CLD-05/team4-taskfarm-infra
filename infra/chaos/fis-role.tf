@@ -21,3 +21,4 @@ resource "aws_iam_role_policy_attachment" "fis_network" {
   role       = aws_iam_role.fis.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorNetworkAccess"
 }
+
