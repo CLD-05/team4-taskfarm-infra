@@ -1,11 +1,17 @@
 const crypto = require("crypto");
 const https = require("https");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
 
+const lambda = new LambdaClient({});
 const secrets = new SecretsManagerClient({});
 const secretCache = new Map();
 
 exports.handler = async (event) => {
+  if (event && event.mode === "approve_pending_deployment_worker") {
+    return await handleAutoApproveWorker(event);
+  }
+
   const rawBody = event.isBase64Encoded
     ? Buffer.from(event.body || "", "base64").toString("utf8")
     : event.body || "";
@@ -67,14 +73,51 @@ async function handleAction(rawBody) {
     throw publicError(400, "Unsupported Slack action.");
   }
 
+  const dispatchedAt = new Date();
   const dispatch = await dispatchGithubWorkflow();
+  await invokeAutoApproveWorker({
+    dispatchedAt: dispatchedAt.toISOString(),
+    responseUrl: payload.response_url,
+    slackUserId: userId
+  });
+
   await respondToSlack(payload.response_url, {
     replace_original: true,
     response_type: "in_channel",
-    text: `<@${userId}> approved prod deployment. GitHub Actions workflow dispatch status: ${dispatch.statusCode}.`
+    text: `<@${userId}> approved prod deployment. GitHub Actions workflow dispatch status: ${dispatch.statusCode}. Automatically approving \`${process.env.GITHUB_ENVIRONMENT_NAME}\` next.`
   });
 
   return emptyResponse();
+}
+
+async function handleAutoApproveWorker(event) {
+  try {
+    const run = await findDispatchedWorkflowRun(new Date(event.dispatchedAt));
+    if (!run) {
+      await respondToSlack(event.responseUrl, {
+        replace_original: true,
+        response_type: "in_channel",
+        text: `<@${event.slackUserId}> approved prod deployment, but the GitHub Actions run was not visible yet. Check GitHub Actions for the pending production review.`
+      });
+      return { ok: false, reason: "run_not_found" };
+    }
+
+    const result = await reviewPendingDeployment(run.id, "approved", event.slackUserId);
+    await respondToSlack(event.responseUrl, {
+      replace_original: true,
+      response_type: "in_channel",
+      text: `<@${event.slackUserId}> approved prod deployment and automatically approved \`${process.env.GITHUB_ENVIRONMENT_NAME}\` for GitHub Actions run <${run.html_url}|#${run.run_number}>. Review status: ${result.statusCode}.`
+    });
+    return { ok: true, run_id: run.id };
+  } catch (error) {
+    console.error(error);
+    await respondToSlack(event.responseUrl, {
+      replace_original: true,
+      response_type: "in_channel",
+      text: `<@${event.slackUserId}> approved prod deployment, but automatic \`${process.env.GITHUB_ENVIRONMENT_NAME}\` approval failed: ${error.publicMessage || error.message}`
+    });
+    return { ok: false, error: error.publicMessage || error.message };
+  }
 }
 
 function approvalBlocks(requesterId) {
@@ -108,23 +151,29 @@ function approvalBlocks(requesterId) {
   ];
 }
 
+async function invokeAutoApproveWorker(payload) {
+  await lambda.send(new InvokeCommand({
+    FunctionName: process.env.SELF_FUNCTION_NAME,
+    InvocationType: "Event",
+    Payload: Buffer.from(JSON.stringify({
+      mode: "approve_pending_deployment_worker",
+      ...payload
+    }))
+  }));
+}
+
 async function dispatchGithubWorkflow() {
-  const token = await getSecret(process.env.GITHUB_TOKEN_SECRET_ID, ["token", "github_token", "GITHUB_TOKEN"]);
   const owner = encodeURIComponent(process.env.GITHUB_OWNER);
   const repo = encodeURIComponent(process.env.GITHUB_REPO);
   const workflowId = encodeURIComponent(process.env.GITHUB_WORKFLOW_ID);
   const prodInputName = process.env.WORKFLOW_PROD_INPUT_NAME || "prod";
 
-  return requestJson({
+  return githubRequest({
     hostname: "api.github.com",
     path: `/repos/${owner}/${repo}/actions/workflows/${workflowId}/dispatches`,
     method: "POST",
     headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "User-Agent": "taskfarm-chatops-approval",
-      "X-GitHub-Api-Version": "2026-03-10"
     },
     body: JSON.stringify({
       ref: process.env.GITHUB_REF || "main",
@@ -133,6 +182,103 @@ async function dispatchGithubWorkflow() {
       }
     }),
     successStatuses: [200, 201, 204]
+  });
+}
+
+async function findDispatchedWorkflowRun(dispatchedAt) {
+  const owner = encodeURIComponent(process.env.GITHUB_OWNER);
+  const repo = encodeURIComponent(process.env.GITHUB_REPO);
+  const workflowId = encodeURIComponent(process.env.GITHUB_WORKFLOW_ID);
+  const ref = encodeURIComponent(process.env.GITHUB_REF || "main");
+  const minCreatedAt = dispatchedAt.getTime() - 5000;
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await githubRequest({
+      hostname: "api.github.com",
+      path: `/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs?event=workflow_dispatch&branch=${ref}&per_page=5`,
+      method: "GET",
+      successStatuses: [200]
+    });
+    const body = JSON.parse(response.body || "{}");
+    const run = (body.workflow_runs || []).find((candidate) => {
+      return new Date(candidate.created_at).getTime() >= minCreatedAt;
+    });
+
+    if (run) {
+      return run;
+    }
+
+    await delay(500);
+  }
+
+  return null;
+}
+
+async function reviewPendingDeployment(runId, state, slackUserId) {
+  if (!runId) {
+    throw publicError(400, "GitHub Actions run ID is missing.");
+  }
+
+  const owner = encodeURIComponent(process.env.GITHUB_OWNER);
+  const repo = encodeURIComponent(process.env.GITHUB_REPO);
+  const environmentName = process.env.GITHUB_ENVIRONMENT_NAME || "production";
+  const environment = await findPendingDeployment(owner, repo, runId, environmentName);
+
+  if (!environment) {
+    throw publicError(409, `No pending ${environmentName} deployment found for run #${runId}.`);
+  }
+
+  return githubRequest({
+    hostname: "api.github.com",
+    path: `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}/pending_deployments`,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      environment_ids: [environment.environment.id],
+      state,
+      comment: `${state} from Slack ChatOps by ${slackUserId}`
+    }),
+    successStatuses: [200, 201, 204]
+  });
+}
+
+async function findPendingDeployment(owner, repo, runId, environmentName) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const pending = await githubRequest({
+      hostname: "api.github.com",
+      path: `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}/pending_deployments`,
+      method: "GET",
+      successStatuses: [200]
+    });
+    const deployments = JSON.parse(pending.body || "[]");
+    const environment = deployments.find((deployment) => {
+      return deployment.environment && deployment.environment.name === environmentName;
+    });
+
+    if (environment) {
+      return environment;
+    }
+
+    await delay(1500);
+  }
+
+  return null;
+}
+
+async function githubRequest(options) {
+  const token = await getSecret(process.env.GITHUB_TOKEN_SECRET_ID, ["token", "github_token", "GITHUB_TOKEN"]);
+
+  return requestJson({
+    ...options,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "taskfarm-chatops-approval",
+      "X-GitHub-Api-Version": "2026-03-10",
+      ...(options.headers || {})
+    }
   });
 }
 
@@ -260,6 +406,10 @@ function requestJson(options) {
     request.write(body);
     request.end();
   });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function publicError(statusCode, message) {

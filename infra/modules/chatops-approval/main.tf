@@ -1,7 +1,12 @@
 locals {
   resource_prefix = lower(replace(var.name_prefix, "_", "-"))
   function_name   = "${local.resource_prefix}-chatops-approval"
+  function_arn    = "arn:${data.aws_partition.current.partition}:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${local.function_name}"
 }
+
+data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+data "aws_region" "current" {}
 
 data "archive_file" "lambda" {
   type        = "zip"
@@ -57,6 +62,13 @@ resource "aws_iam_role_policy" "lambda" {
         {
           Effect = "Allow"
           Action = [
+            "lambda:InvokeFunction"
+          ]
+          Resource = local.function_arn
+        },
+        {
+          Effect = "Allow"
+          Action = [
             "secretsmanager:GetSecretValue"
           ]
           Resource = [
@@ -85,18 +97,20 @@ resource "aws_lambda_function" "this" {
   runtime          = "nodejs20.x"
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
-  timeout          = 10
+  timeout          = 30
 
   environment {
     variables = {
       ALLOWED_SLACK_USER_IDS   = join(",", var.allowed_slack_user_ids)
+      GITHUB_ENVIRONMENT_NAME  = var.github_environment_name
       GITHUB_OWNER             = var.github_owner
       GITHUB_REPO              = var.github_repo
       GITHUB_REF               = var.github_ref
       GITHUB_TOKEN_SECRET_ID   = var.github_token_secret_name
       GITHUB_WORKFLOW_ID       = var.github_workflow_id
+      SELF_FUNCTION_NAME       = local.function_name
       SLACK_SIGNING_SECRET_ID  = var.slack_signing_secret_name
-      WORKFLOW_PROD_INPUT_NAME = "prod"
+      WORKFLOW_PROD_INPUT_NAME = var.github_prod_input_name
     }
   }
 

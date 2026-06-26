@@ -22,8 +22,8 @@ Terraform creates the empty Secrets Manager secrets below. Fill their values aft
 - `team4/taskfarm/prod/chatops-github-token`
 - `team4/taskfarm/prod/chatops-slack-signing-secret`
 
-The GitHub token must be able to dispatch workflows in `CLD-05/team4-taskfarm-config`.
-Use a fine-grained token or GitHub App token with Actions write permission.
+The GitHub token must be able to dispatch workflows and approve pending deployments in `CLD-05/team4-taskfarm-app`.
+Use a fine-grained token or GitHub App token with Actions write permission and deployment review permission, or a classic token with the required repository access.
 
 Each secret can be a plain string or JSON:
 
@@ -45,9 +45,15 @@ chatops_allowed_slack_user_ids = ["U0123456789"]
 
 The Lambda rejects all requests when this list is empty.
 
-## Required GitHub repo secrets
+## Dispatched workflow
 
-The dispatched workflow in `team4-taskfarm-config` requires:
+The Slack approval dispatches:
 
-- `ARGOCD_SERVER`
-- `ARGOCD_AUTH_TOKEN`
+- repository: `CLD-05/team4-taskfarm-app`
+- workflow: `cd.yml`
+- ref: `main`
+- input: `deploy_prod=true`
+- environment review: `production`
+
+After dispatching the app workflow, the Lambda automatically approves the pending `production` deployment.
+The GitHub token owner must be allowed to approve the `production` environment.
