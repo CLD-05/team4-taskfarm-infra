@@ -220,3 +220,4 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform,intellij+all,visualstudiocode,macos,windows,linux
 falco-values.yaml
+infra/chaos/chaos-*.log

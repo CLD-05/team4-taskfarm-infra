@@ -10,8 +10,18 @@ resource "aws_iam_role_policy" "fis_logs" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Action = ["logs:CreateLogDelivery", "logs:PutLogEvents",
-      "logs:CreateLogStream", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+      Action = [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",        # ← 핵심 (FIS가 로그그룹에 정책 설정)
+        "logs:DescribeResourcePolicies", # ← 핵심
+        "logs:DescribeLogGroups",
+        "logs:PutLogEvents",
+        "logs:CreateLogStream"
+      ]
       Resource = "*"
     }]
   })
