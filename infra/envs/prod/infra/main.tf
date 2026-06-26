@@ -3,6 +3,9 @@
 locals {
   env         = "prod"
   name_prefix = "team4-prod"
+
+  chatops_github_token_secret_name  = "team4/taskfarm/${local.env}/chatops-github-token"
+  chatops_slack_signing_secret_name = "team4/taskfarm/${local.env}/chatops-slack-signing-secret"
 }
 
 module "vpc" {
@@ -125,7 +128,28 @@ module "secrets" {
     "gemini-api-key",     # 평문 문자열
     "grafana-admin",      # JSON: { "admin-user": "...", "admin-password": "..." }
     "alertmanager-slack", # JSON: { "webhook-url": "https://hooks.slack.com/services/..." }
+    "chatops-github-token",
+    "chatops-slack-signing-secret",
   ]
+}
+
+module "chatops_approval" {
+  source = "../../../modules/chatops-approval"
+
+  name_prefix               = local.name_prefix
+  github_owner              = var.chatops_github_owner
+  github_repo               = var.chatops_github_repo
+  github_workflow_id        = var.chatops_github_workflow_id
+  github_ref                = var.chatops_github_ref
+  github_token_secret_name  = local.chatops_github_token_secret_name
+  github_token_secret_arn   = module.secrets.secret_arns["chatops-github-token"]
+  slack_signing_secret_name = local.chatops_slack_signing_secret_name
+  slack_signing_secret_arn  = module.secrets.secret_arns["chatops-slack-signing-secret"]
+  allowed_slack_user_ids    = var.chatops_allowed_slack_user_ids
+  secret_kms_key_arn        = module.secrets.kms_key_arn
+  permissions_boundary_arn  = var.permissions_boundary_arn
+
+  depends_on = [module.secrets]
 }
 
 # route53: prod가 zone 소유 (create_zone=true).

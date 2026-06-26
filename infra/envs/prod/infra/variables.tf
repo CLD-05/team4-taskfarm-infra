@@ -91,3 +91,33 @@ variable "public_access_cidrs" {
   type    = list(string)
   default = []
 }
+
+variable "chatops_github_owner" {
+  description = "GitHub owner/org for the prod deploy workflow."
+  type        = string
+  default     = "CLD-05"
+}
+
+variable "chatops_github_repo" {
+  description = "GitHub repo for the prod deploy workflow."
+  type        = string
+  default     = "team4-taskfarm-config"
+}
+
+variable "chatops_github_workflow_id" {
+  description = "Workflow file name or workflow ID dispatched by Slack approval."
+  type        = string
+  default     = "deploy-prod.yml"
+}
+
+variable "chatops_github_ref" {
+  description = "Git ref used for Slack-approved workflow dispatch."
+  type        = string
+  default     = "main"
+}
+
+variable "chatops_allowed_slack_user_ids" {
+  description = "Slack user IDs allowed to request and approve prod deployment."
+  type        = list(string)
+  default     = []
+}

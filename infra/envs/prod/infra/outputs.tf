@@ -1,5 +1,3 @@
-# envs/prod/infra/outputs.tf
-
 output "ecr_repository_urls" {
   description = "Prod ECR repository URLs."
   value       = module.ecr.repository_urls
@@ -11,7 +9,7 @@ output "ecr_repository_arns" {
 }
 
 output "cluster_name" {
-  description = "EKS cluster name (platform-addons provider)."
+  description = "EKS cluster name for platform-addons provider."
   value       = module.eks.cluster_name
 }
 
@@ -21,7 +19,7 @@ output "cluster_endpoint" {
 }
 
 output "cluster_ca" {
-  description = "EKS cluster CA (base64)."
+  description = "EKS cluster CA in base64."
   value       = module.eks.cluster_ca
 }
 
@@ -51,16 +49,26 @@ output "rds_primary_endpoint" {
 }
 
 output "route53_name_servers" {
-  description = "Route53 네임서버. 가비아 도메인 네임서버를 이 값들로 변경(수동)."
+  description = "Route53 name servers."
   value       = module.route53.name_servers
 }
 
 output "static_bucket_name" {
-  description = "정적자원 S3 버킷 이름 (CloudFront origin)."
+  description = "Static asset S3 bucket name."
   value       = module.s3.bucket_name
 }
 
 output "secrets_kms_key_arn" {
-  description = "Secrets Manager 암호화 KMS 키 ARN (ESO kms:Decrypt 정책용)."
+  description = "Secrets Manager KMS key ARN."
   value       = module.secrets.kms_key_arn
+}
+
+output "chatops_slack_command_request_url" {
+  description = "Slack slash command Request URL for prod deploy approval."
+  value       = module.chatops_approval.slack_command_request_url
+}
+
+output "chatops_slack_interactivity_request_url" {
+  description = "Slack Interactivity Request URL for prod deploy approval buttons."
+  value       = module.chatops_approval.slack_interactivity_request_url
 }
