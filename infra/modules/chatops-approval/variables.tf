@@ -16,13 +16,25 @@ variable "github_repo" {
 variable "github_workflow_id" {
   description = "Workflow file name or workflow ID to dispatch."
   type        = string
-  default     = "deploy-prod.yml"
+  default     = "cd.yml"
+}
+
+variable "github_prod_input_name" {
+  description = "Boolean workflow_dispatch input name used to trigger prod deployment."
+  type        = string
+  default     = "deploy_prod"
 }
 
 variable "github_ref" {
   description = "Git ref used for workflow dispatch."
   type        = string
   default     = "main"
+}
+
+variable "github_environment_name" {
+  description = "GitHub Actions environment name to approve through pending deployments."
+  type        = string
+  default     = "production"
 }
 
 variable "github_token_secret_name" {

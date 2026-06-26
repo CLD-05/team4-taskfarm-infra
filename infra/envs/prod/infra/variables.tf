@@ -101,19 +101,31 @@ variable "chatops_github_owner" {
 variable "chatops_github_repo" {
   description = "GitHub repo for the prod deploy workflow."
   type        = string
-  default     = "team4-taskfarm-config"
+  default     = "team4-taskfarm-app"
 }
 
 variable "chatops_github_workflow_id" {
   description = "Workflow file name or workflow ID dispatched by Slack approval."
   type        = string
-  default     = "deploy-prod.yml"
+  default     = "cd.yml"
+}
+
+variable "chatops_github_prod_input_name" {
+  description = "Boolean workflow_dispatch input name used to trigger prod deployment."
+  type        = string
+  default     = "deploy_prod"
 }
 
 variable "chatops_github_ref" {
   description = "Git ref used for Slack-approved workflow dispatch."
   type        = string
   default     = "main"
+}
+
+variable "chatops_github_environment_name" {
+  description = "GitHub Actions environment name approved by Slack ChatOps."
+  type        = string
+  default     = "production"
 }
 
 variable "chatops_allowed_slack_user_ids" {

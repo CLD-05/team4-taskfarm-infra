@@ -140,6 +140,8 @@ module "chatops_approval" {
   github_owner              = var.chatops_github_owner
   github_repo               = var.chatops_github_repo
   github_workflow_id        = var.chatops_github_workflow_id
+  github_prod_input_name    = var.chatops_github_prod_input_name
+  github_environment_name   = var.chatops_github_environment_name
   github_ref                = var.chatops_github_ref
   github_token_secret_name  = local.chatops_github_token_secret_name
   github_token_secret_arn   = module.secrets.secret_arns["chatops-github-token"]
