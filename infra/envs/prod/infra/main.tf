@@ -173,4 +173,17 @@ module "s3" {
   # buckets default(app)에 정적자원용. CloudFront 모듈 추가 시 OAC 연결.
 }
 
-# ── CloudFront는 추후 별도 추가 (us-east-1 ACM provider alias 필요) ──
+resource "aws_kms_key" "mfa" {
+  description             = "KMS key for ${local.name_prefix} admin MFA(TOTP) secret encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name = "${local.name_prefix}-mfa-kms"
+  }
+}
+
+resource "aws_kms_alias" "mfa" {
+  name          = "alias/${local.name_prefix}-mfa"
+  target_key_id = aws_kms_key.mfa.key_id
+}

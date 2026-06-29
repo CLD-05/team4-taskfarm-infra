@@ -9,6 +9,8 @@ module "platform_addons" {
   oidc_provider_arn   = data.terraform_remote_state.infra.outputs.oidc_provider_arn
   oidc_provider_url   = data.terraform_remote_state.infra.outputs.oidc_provider_url
   secrets_kms_key_arn = data.terraform_remote_state.infra.outputs.secrets_kms_key_arn
+  mfa_kms_key_arn     = data.terraform_remote_state.infra.outputs.mfa_kms_key_arn
+
 
   chart_versions               = var.chart_versions
   external_secrets_secret_arns = var.external_secrets_secret_arns

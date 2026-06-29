@@ -1,5 +1,5 @@
 locals {
-  admin_app_namespace       = "taskfarm-dev"
+  admin_app_namespace       = "taskfarm-${var.env}"
   admin_app_service_account = "taskfarm-admin-sa"
 }
 
@@ -37,7 +37,6 @@ resource "aws_iam_role_policy" "admin_mfa" {
     Version = "2012-10-17"
     Statement = [
       {
-        # MFA 시크릿 암복호화 — 전용 키에만 한정 (최소권한)
         Effect = "Allow"
         Action = [
           "kms:Encrypt",
@@ -50,8 +49,7 @@ resource "aws_iam_role_policy" "admin_mfa" {
   })
 }
 
-# IRSA Role ARN을 노출 → config 레포의 ServiceAccount 어노테이션에 넣을 값
 output "admin_mfa_role_arn" {
-  description = "taskfarm-admin-sa 에 달 IRSA Role ARN (eks.amazonaws.com/role-arn 어노테이션)"
+  description = "taskfarm-admin-sa 에 달 IRSA Role ARN"
   value       = aws_iam_role.admin_mfa.arn
 }

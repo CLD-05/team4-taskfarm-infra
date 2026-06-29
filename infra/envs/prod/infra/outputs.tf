@@ -72,3 +72,8 @@ output "chatops_slack_interactivity_request_url" {
   description = "Slack Interactivity Request URL for prod deploy approval buttons."
   value       = module.chatops_approval.slack_interactivity_request_url
 }
+
+output "mfa_kms_key_arn" {
+  description = "어드민 MFA(TOTP) 시크릿 암호화 KMS 키 ARN."
+  value       = aws_kms_key.mfa.arn
+}
