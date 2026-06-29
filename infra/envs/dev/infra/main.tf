@@ -121,3 +121,18 @@ module "secrets" {
 
 
 # dev는 s3 정적버킷 없음(CloudFront prod만). 필요 시 추가.
+
+resource "aws_kms_key" "mfa" {
+  description             = "KMS key for ${local.name_prefix} admin MFA(TOTP) secret encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name = "${local.name_prefix}-mfa-kms"
+  }
+}
+
+resource "aws_kms_alias" "mfa" {
+  name          = "alias/${local.name_prefix}-mfa"
+  target_key_id = aws_kms_key.mfa.key_id
+}

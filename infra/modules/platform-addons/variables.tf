@@ -172,3 +172,8 @@ variable "secrets_kms_key_arn" {
   description = "Secrets Manager 암호화 KMS 키 ARN. ESO kms:Decrypt 허용 대상."
   type        = string
 }
+
+variable "mfa_kms_key_arn" {
+  description = "어드민 MFA(TOTP) 시크릿 암호화 KMS 키 ARN. admin-sa IRSA의 kms:Encrypt/Decrypt 대상."
+  type        = string
+}
