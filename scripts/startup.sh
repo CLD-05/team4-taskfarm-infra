@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# startup.sh — TaskFarm 아침 복구
+# startup.sh — TaskFarm 아침 복구 (올리기)
 #
 # 순서(teardown 역순): 인스턴스 start → RDS start → terraform init
 #                      → NAT GW apply → 노드그룹 apply
@@ -127,13 +127,29 @@ echo "[4/7] NAT Gateway apply 단계 종료."
 
 # --- 5. 노드그룹 apply (terraform) ------------------------------------------
 echo ""
-echo "[5/7] 노드그룹 apply (terraform)..."
+echo "[5/8] 노드그룹 apply (terraform)..."
 run_tf "노드그룹 apply" apply -target='module.eks.aws_eks_node_group.main[0]' -auto-approve
-echo "[5/7] 노드그룹 apply 단계 종료."
+echo "[5/8] 노드그룹 apply 단계 종료."
 
-# --- 6. RDS replica apply (★ primary available 대기 후!) --------------------
+# --- 5.5. EBS CSI 애드온 보장 (★ 노드 destroy/apply 하면 CSI가 증발함!) ------
+#   증상: CSI 없으면 PVC 볼륨(Prometheus 등)이 노드에 안 붙어 Pending 무한대기
+#         → 그라파나 접속 불가. (2026-06-30 이 문제로 한참 헤맴)
+#   노드에 의존하는 애드온이라 노드 apply 뒤에 반드시 재확인.
 echo ""
-echo "[6/7] RDS primary가 available 될 때까지 대기..."
+echo "[6/8] EBS CSI 애드온 확인/복구..."
+if aws eks list-addons --cluster-name "$CLUSTER_PROD" --region "$REGION" \
+     --query 'addons' --output text 2>/dev/null | grep -q 'aws-ebs-csi-driver'; then
+  echo "  [OK] EBS CSI 애드온 이미 존재."
+else
+  echo "  [경고] EBS CSI 애드온 없음 → terraform으로 복구..."
+  run_tf "EBS CSI 애드온 복구" apply -target='module.eks.aws_eks_addon.ebs_csi[0]' -auto-approve
+  echo "  CSI 파드 뜨는 중(1~2분). 볼륨 붙이려면 필요."
+fi
+echo "[6/8] EBS CSI 애드온 단계 종료."
+
+# --- 7. RDS replica apply (★ primary available 대기 후!) --------------------
+echo ""
+echo "[7/8] RDS primary가 available 될 때까지 대기..."
 if aws rds wait db-instance-available --db-instance-identifier team4-prod-mysql --region "$REGION"; then
   echo "  primary available 확인. replica 재생성..."
   run_tf "RDS replica apply" apply -target='module.rds.aws_db_instance.read_replica[0]' -auto-approve
@@ -142,16 +158,16 @@ else
   FAIL_COUNT=$((FAIL_COUNT+1))
   FAILED_STEPS="$FAILED_STEPS\n  - RDS replica apply (primary 대기 실패)"
 fi
-echo "[6/7] RDS replica 단계 종료."
+echo "[7/8] RDS replica 단계 종료."
 
-# --- 7. 앱 scale 1 (prod + dev) ---------------------------------------------
+# --- 8. 앱 scale 1 (prod + dev) ---------------------------------------------
 echo ""
-echo "[7/7] 앱 scale 1..."
+echo "[8/8] 앱 scale 1..."
 kubectl config use-context "$PROD_CTX" >/dev/null 2>&1
 kubectl scale deployment --all -n "$NS_PROD" --replicas=1 2>/dev/null || echo "  prod scale 스킵"
 kubectl config use-context "$DEV_CTX" >/dev/null 2>&1
 kubectl scale deployment --all -n "$NS_DEV" --replicas=1 2>/dev/null || echo "  dev scale 스킵"
-echo "[7/7] 앱 scale 1 완료."
+echo "[8/8] 앱 scale 1 완료."
 
 # --- 결과 요약 --------------------------------------------------------------
 echo ""
@@ -168,6 +184,11 @@ echo ""
 echo " 확인: kubectl get nodes"
 echo "       kubectl get applications -n argocd  (OutOfSync면 수동 sync)"
 echo "       prod 수동 sync: kubectl patch application taskfarm-user-prod -n argocd --type merge -p '{\"operation\":{\"sync\":{}}}'"
+echo ""
+echo " ★ 모니터링(그라파나) 안 뜨면 — CSI 복구 후 Prometheus 파드가 옛 상태일 수 있음:"
+echo "   kubectl get pods -n monitoring | grep prometheus   (Init/Pending이면 아래)"
+echo "   kubectl delete pod prometheus-kube-prometheus-stack-prometheus-0 -n monitoring"
+echo "   → 재시작하면 CSI가 볼륨 붙여서 Running 됨."
 echo "================================================================"
 
 [ "$FAIL_COUNT" -eq 0 ] || exit 1
