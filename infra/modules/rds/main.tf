@@ -112,6 +112,9 @@ resource "aws_db_instance" "primary" {
       condition     = !var.create_read_replica || var.backup_retention_period > 0
       error_message = "backup_retention_period must be greater than 0 when create_read_replica is true."
     }
+    ignore_changes = [
+      kms_key_id, # [추가] 스냅샷 복원으로 인한 KMS drift 무시 (Primary는 680ce05c 유지)
+    ]
   }
 
   tags = merge(var.tags, {
@@ -132,7 +135,7 @@ resource "aws_db_instance" "read_replica" {
 
   # [D-FIX 1] 소스와 동일하게 암호화 상태를 명시 → 매 apply 강제 replace 방지
   storage_encrypted = true
-  kms_key_id        = aws_kms_key.rds.arn
+  #kms_key_id        = aws_kms_key.rds.arn
 
   # replica는 자체 백업 불필요(소스에서 복제)
   backup_retention_period = 0
